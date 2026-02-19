@@ -25,7 +25,6 @@
     @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   </style>
 
-  <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { 
@@ -37,11 +36,8 @@
       where, serverTimestamp, doc, setDoc, getDoc, getDocs, 
       updateDoc, arrayUnion, arrayRemove, orderBy 
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { 
-      getStorage, ref, uploadBytes, getDownloadURL 
-    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+    // REMOVED: Firebase Storage imports - we don't need them anymore!
 
-    // Firebase Config (Keep your keys here)
     const firebaseConfig = {
       apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
       authDomain: "khaji-23a99.firebaseapp.com",
@@ -54,13 +50,12 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const storage = getStorage(app);
+    // REMOVED: const storage = ... 
 
     // --- DOM Elements ---
     const loginView = document.getElementById("loginView");
     const appView = document.getElementById("appView");
     
-    // Login/Register Elements (Fixed Duplicate IDs)
     const loginEmailIn = document.getElementById("loginEmailIn");
     const loginPassIn = document.getElementById("loginPassIn");
     const regNameIn = document.getElementById("regNameIn");
@@ -74,7 +69,6 @@
     const loginForm = document.getElementById("loginForm");
     const regForm = document.getElementById("regForm");
 
-    // App Elements
     const userNameEl = document.getElementById("userName");
     const userPicEl = document.getElementById("userPic");
     const logoutBtn = document.getElementById("logoutBtn");
@@ -82,13 +76,12 @@
     const postInput = document.getElementById("postInput");
     const postBtn = document.getElementById("postBtn");
     
-    // Image Upload Elements
+    // Image Elements
     const postImageInput = document.getElementById("postImageInput");
     const imagePreviewContainer = document.getElementById("imagePreviewContainer");
     const imagePreview = document.getElementById("imagePreview");
     const removeImageBtn = document.getElementById("removeImageBtn");
 
-    // Friends & Chat
     const searchInput = document.getElementById("searchInput");
     const searchResults = document.getElementById("searchResults");
     const requestsContainer = document.getElementById("requestsContainer");
@@ -101,130 +94,97 @@
     const videoBtn = document.getElementById("videoBtn");
     const closeChatBtn = document.getElementById("closeChatBtn");
     
-    // Video Modal
     const videoModal = document.getElementById("videoModal");
     const localVideo = document.getElementById("localVideo");
     const remoteVideo = document.getElementById("remoteVideo");
     const endCallBtn = document.getElementById("endCallBtn");
 
-    // --- State ---
-    let currentUser = null; // Firebase Auth User
-    let currentUserData = null; // Firestore User Data (Name, Photo, etc)
+    let currentUser = null;
+    let currentUserData = null;
     let currentChatId = null;
     let peer = null;
     let myStream = null;
-    let selectedFile = null;
+    let selectedFile = null; // This will now hold the Base64 String
 
-    // --- 1. Auth System ---
-    
+    // --- Auth System ---
     showRegBtn.onclick = () => { loginForm.classList.add('hidden'); regForm.classList.remove('hidden'); };
     showLoginBtn.onclick = () => { regForm.classList.add('hidden'); loginForm.classList.remove('hidden'); };
 
-    // Register Logic
     registerBtn.onclick = async () => {
       const name = regNameIn.value;
       const email = regEmailIn.value;
       const password = regPassIn.value;
-
       if(!email || !password || !name) return alert("Please fill all fields");
-
       try {
         registerBtn.innerText = "Creating...";
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        
         await setDoc(doc(db, "users", cred.user.uid), {
-          uid: cred.user.uid,
-          name: name,
-          email: email,
-          photoURL: "",
-          online: true,
-          friends: [],
-          requests: []
+          uid: cred.user.uid, name: name, email: email, photoURL: "",
+          online: true, friends: [], requests: []
         });
-        // Auth listener handles the rest
-      } catch(e) {
-        alert(e.message);
-        registerBtn.innerText = "Create Account";
-      }
+      } catch(e) { alert(e.message); registerBtn.innerText = "Create Account"; }
     };
 
-    // Login Logic
     loginBtn.onclick = async () => {
       const email = loginEmailIn.value;
       const password = loginPassIn.value;
       if(!email || !password) return alert("Enter email and password");
-
       try {
         loginBtn.innerText = "Signing In...";
         await signInWithEmailAndPassword(auth, email, password);
-      } catch(e) {
-        alert("Login Failed: " + e.message);
-        loginBtn.innerText = "Log In";
-      }
+      } catch(e) { alert("Login Failed: " + e.message); loginBtn.innerText = "Log In"; }
     };
 
     logoutBtn.onclick = async () => {
-      if(currentUserData) {
-         await updateDoc(doc(db, "users", currentUser.uid), { online: false });
-      }
+      if(currentUserData) await updateDoc(doc(db, "users", currentUser.uid), { online: false });
       await signOut(auth);
     };
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
-        loginView.classList.add("hidden");
-        appView.classList.remove("hidden");
+        loginView.classList.add("hidden"); appView.classList.remove("hidden");
         currentUser = user;
-        
         initPeer(user.uid);
         await loadUserData(user.uid);
         loadPosts();
         loadFriendsAndRequests();
-        
         await updateDoc(doc(db, "users", user.uid), { online: true });
-        
         window.onbeforeunload = async () => {
            if(currentUser) await updateDoc(doc(db, "users", currentUser.uid), { online: false });
         };
       } else {
-        loginView.classList.remove("hidden");
-        appView.classList.add("hidden");
-        currentUser = null;
-        currentUserData = null;
+        loginView.classList.remove("hidden"); appView.classList.add("hidden");
+        currentUser = null; currentUserData = null;
       }
     });
 
     async function loadUserData(uid) {
         const snap = await getDoc(doc(db, "users", uid));
         if(snap.exists()) {
-            currentUserData = snap.data(); // Store data globally
-            
-            // Update Header
+            currentUserData = snap.data();
             userNameEl.innerText = currentUserData.name;
             userPicEl.src = currentUserData.photoURL || `https://ui-avatars.com/api/?name=${currentUserData.name}&background=1877f2&color=fff`;
-            
-            // Update Sidebar
             document.getElementById("userNameSidebar").innerText = currentUserData.name;
             document.getElementById("userPicSidebar").src = currentUserData.photoURL || `https://ui-avatars.com/api/?name=${currentUserData.name}&background=1877f2&color=fff`;
-            
-            // Update Post Avatar
             document.getElementById("postAvatar").src = currentUserData.photoURL || `https://ui-avatars.com/api/?name=${currentUserData.name}&background=1877f2&color=fff`;
         }
     }
 
-    // --- 2. Image Upload Logic ---
-    
-    // Trigger file input click
-    document.getElementById("photoPostBtn").onclick = () => {
-        postImageInput.click();
-    };
+    // --- Image Upload Logic (Base64 - FREE) ---
+    document.getElementById("photoPostBtn").onclick = () => postImageInput.click();
 
     postImageInput.onchange = (e) => {
         const file = e.target.files[0];
         if(file) {
-            selectedFile = file;
+            // CHECK FILE SIZE (Limit to ~500KB to be safe for Firestore 1MB limit)
+            if(file.size > 500000) { 
+                alert("Image is too large! Please select an image smaller than 500KB.");
+                return; 
+            }
+
             const reader = new FileReader();
             reader.onload = (x) => {
+                selectedFile = x.target.result; // This is the Base64 string
                 imagePreview.src = x.target.result;
                 imagePreviewContainer.classList.remove("hidden");
             }
@@ -238,7 +198,7 @@
         imagePreviewContainer.classList.add("hidden");
     };
 
-    // --- 3. Posts (Feed) with Image Support ---
+    // --- Posts (Feed) with Base64 Image ---
     postBtn.onclick = async () => {
         const text = postInput.value.trim();
         if(!text && !selectedFile) return alert("Write something or add a photo!");
@@ -247,19 +207,12 @@
         postBtn.disabled = true;
 
         try {
-            let imageURL = "";
-
-            // 1. Upload Image if selected
-            if(selectedFile) {
-                const storageRef = ref(storage, `posts/${currentUser.uid}/${Date.now()}_${selectedFile.name}`);
-                const uploadSnap = await uploadBytes(storageRef, selectedFile);
-                imageURL = await getDownloadURL(uploadSnap.ref);
-            }
-
-            // 2. Create Post
+            // Just save the 'selectedFile' (which is the base64 string) directly
+            // No need for uploadBytes or Storage references!
+            
             await addDoc(collection(db, "posts"), {
                 text: text,
-                imageURL: imageURL,
+                imageURL: selectedFile || "", // Save base64 string here
                 uid: currentUser.uid,
                 userName: currentUserData.name,
                 userPhoto: currentUserData.photoURL || "",
@@ -267,13 +220,11 @@
                 likes: []
             });
 
-            // Reset Form
             postInput.value = "";
-            removeImageBtn.onclick(); // Clear image
-            
+            removeImageBtn.onclick(); 
         } catch (error) {
             console.error("Error posting: ", error);
-            alert("Failed to post. Check console for errors (likely Firestore Rules).");
+            alert("Failed to post.");
         }
         
         postBtn.innerText = "Post";
@@ -288,6 +239,7 @@
                 const p = d.data();
                 const time = p.timestamp ? new Date(p.timestamp.toDate()).toLocaleString() : "Just now";
                 const isLiked = p.likes?.includes(currentUser.uid);
+                // This will work for both Base64 strings AND normal URLs
                 const imgHTML = p.imageURL ? `<img src="${p.imageURL}" class="w-full rounded mb-3 max-h-96 object-cover" alt="Post image">` : '';
                 
                 postsContainer.innerHTML += `
@@ -314,20 +266,15 @@
 
     window.toggleLike = async (id, isLiked) => {
         const ref = doc(db, "posts", id);
-        if(isLiked) {
-            await updateDoc(ref, { likes: arrayRemove(currentUser.uid) });
-        } else {
-            await updateDoc(ref, { likes: arrayUnion(currentUser.uid) });
-        }
+        if(isLiked) await updateDoc(ref, { likes: arrayRemove(currentUser.uid) });
+        else await updateDoc(ref, { likes: arrayUnion(currentUser.uid) });
     };
 
-    // --- 4. Friend System ---
-    
+    // --- Friend & Chat System (Same as before) ---
     searchInput.oninput = async () => {
         const term = searchInput.value.toLowerCase();
         searchResults.innerHTML = "";
         if(!term) return;
-
         const snap = await getDocs(collection(db, "users"));
         snap.forEach(d => {
             const u = d.data();
@@ -339,9 +286,7 @@
                         <img src="${u.photoURL || `https://ui-avatars.com/api/?name=${u.name}`}" class="w-8 h-8 rounded-full">
                         <span class="text-sm font-medium">${u.name}</span>
                     </div>
-                    ${isFriend 
-                        ? '<span class="text-xs text-green-600 font-bold">Friend</span>' 
-                        : `<button onclick="sendReq('${u.uid}')" class="text-xs bg-fb text-white px-2 py-1 rounded">Add</button>`}
+                    ${isFriend ? '<span class="text-xs text-green-600 font-bold">Friend</span>' : `<button onclick="sendReq('${u.uid}')" class="text-xs bg-fb text-white px-2 py-1 rounded">Add</button>`}
                 </div>`;
             }
         });
@@ -350,25 +295,14 @@
     async function loadFriendsAndRequests() {
         onSnapshot(doc(db, "users", currentUser.uid), async (snap) => {
             if(!snap.exists()) return;
-            currentUserData = snap.data(); // Update local data
-            
-            // Render Requests
+            currentUserData = snap.data();
             requestsContainer.innerHTML = "";
             if(currentUserData.requests?.length > 0) {
                 for(let req of currentUserData.requests) {
-                    requestsContainer.innerHTML += `
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-sm">${req.name}</span>
-                        <div class="gap-1 flex">
-                            <button onclick="acceptReq('${req.uid}')" class="text-xs bg-green-500 text-white px-2 py-1 rounded">Confirm</button>
-                        </div>
-                    </div>`;
+                    requestsContainer.innerHTML += `<div class="flex justify-between items-center mb-2"><span class="text-sm">${req.name}</span><button onclick="acceptReq('${req.uid}')" class="text-xs bg-green-500 text-white px-2 py-1 rounded">Confirm</button></div>`;
                 }
-            } else {
-                requestsContainer.innerHTML = "<p class='text-xs text-gray-400'>No new requests.</p>";
-            }
+            } else requestsContainer.innerHTML = "<p class='text-xs text-gray-400'>No new requests.</p>";
 
-            // Render Friends List
             friendsContainer.innerHTML = "";
             if(currentUserData.friends?.length > 0) {
                 for(let fid of currentUserData.friends) {
@@ -376,12 +310,7 @@
                     if(fSnap.exists()) {
                         const f = fSnap.data();
                         const statusColor = f.online ? 'bg-green-500' : 'bg-gray-400';
-                        friendsContainer.innerHTML += `
-                        <div onclick="openChat('${f.uid}', '${f.name}')" class="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer relative">
-                            <img src="${f.photoURL || `https://ui-avatars.com/api/?name=${f.name}`}" class="w-9 h-9 rounded-full">
-                            <span class="text-sm font-medium">${f.name}</span>
-                            <span class="absolute left-7 bottom-0 w-3 h-3 border-2 border-white rounded-full ${statusColor}"></span>
-                        </div>`;
+                        friendsContainer.innerHTML += `<div onclick="openChat('${f.uid}', '${f.name}')" class="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer relative"><img src="${f.photoURL || `https://ui-avatars.com/api/?name=${f.name}`}" class="w-9 h-9 rounded-full"><span class="text-sm font-medium">${f.name}</span><span class="absolute left-7 bottom-0 w-3 h-3 border-2 border-white rounded-full ${statusColor}"></span></div>`;
                     }
                 }
             }
@@ -389,111 +318,47 @@
     }
 
     window.sendReq = async (toUid) => {
-        // Use currentUserData instead of fetching again for speed, but fetch to be safe
         const myData = (await getDoc(doc(db, "users", currentUser.uid))).data();
-        await updateDoc(doc(db, "users", toUid), {
-            requests: arrayUnion({ uid: currentUser.uid, name: myData.name })
-        });
+        await updateDoc(doc(db, "users", toUid), { requests: arrayUnion({ uid: currentUser.uid, name: myData.name }) });
         alert("Request Sent!");
-        searchResults.innerHTML = "";
-        searchInput.value = "";
+        searchResults.innerHTML = ""; searchInput.value = "";
     };
 
     window.acceptReq = async (fromUid) => {
         const updatedRequests = currentUserData.requests.filter(r => r.uid !== fromUid);
-        await updateDoc(doc(db, "users", currentUser.uid), { 
-            requests: updatedRequests,
-            friends: arrayUnion(fromUid)
-        });
-        await updateDoc(doc(db, "users", fromUid), {
-            friends: arrayUnion(currentUser.uid)
-        });
+        await updateDoc(doc(db, "users", currentUser.uid), { requests: updatedRequests, friends: arrayUnion(fromUid) });
+        await updateDoc(doc(db, "users", fromUid), { friends: arrayUnion(currentUser.uid) });
     };
 
-    // --- 5. Chat System ---
-    
     window.openChat = async (friendId, friendName) => {
         currentChatId = [currentUser.uid, friendId].sort().join('_');
-        chatBox.classList.remove("hidden");
-        chatBox.classList.add("slide-up");
+        chatBox.classList.remove("hidden"); chatBox.classList.add("slide-up");
         chatTitle.innerText = friendName;
         videoBtn.setAttribute("data-fid", friendId);
-        
         onSnapshot(query(collection(db, "chats", currentChatId, "messages"), orderBy("timestamp")), (snap) => {
             chatMessages.innerHTML = "";
             snap.forEach(d => {
                 const m = d.data();
                 const isMe = m.senderId === currentUser.uid;
-                chatMessages.innerHTML += `
-                <div class="flex ${isMe ? 'justify-end' : 'justify-start'} mb-2">
-                    <div class="${isMe ? 'bg-fb text-white' : 'bg-gray-200'} px-3 py-1 rounded-lg max-w-xs">
-                        <p class="text-sm">${m.text}</p>
-                    </div>
-                </div>`;
+                chatMessages.innerHTML += `<div class="flex ${isMe ? 'justify-end' : 'justify-start'} mb-2"><div class="${isMe ? 'bg-fb text-white' : 'bg-gray-200'} px-3 py-1 rounded-lg max-w-xs"><p class="text-sm">${m.text}</p></div></div>`;
             });
             chatMessages.scrollTop = chatMessages.scrollHeight;
         });
     };
 
     sendMsgBtn.onclick = async () => {
-        const text = chatInput.value.trim();
-        if(!text || !currentChatId) return;
-        await addDoc(collection(db, "chats", currentChatId, "messages"), {
-            text: text,
-            senderId: currentUser.uid,
-            timestamp: serverTimestamp()
-        });
+        if(!chatInput.value.trim() || !currentChatId) return;
+        await addDoc(collection(db, "chats", currentChatId, "messages"), { text: chatInput.value.trim(), senderId: currentUser.uid, timestamp: serverTimestamp() });
         chatInput.value = "";
     };
     
     closeChatBtn.onclick = () => chatBox.classList.add("hidden");
 
-    // --- 6. Video Call (PeerJS) ---
-    
-    function initPeer(uid) {
-        if(peer) peer.destroy(); // Destroy old instance if exists
-        peer = new Peer(uid);
-        peer.on('open', (id) => console.log('Peer ready:', id));
-        
-        peer.on('call', (call) => {
-            if(confirm("Incoming video call. Answer?")) {
-                openVideoModal();
-                navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-                    myStream = stream;
-                    localVideo.srcObject = stream;
-                    call.answer(stream);
-                    call.on('stream', remoteStream => {
-                        remoteVideo.srcObject = remoteStream;
-                    });
-                }).catch(err => alert("Camera access denied"));
-            }
-        });
-    }
-
-    videoBtn.onclick = () => {
-        const friendId = videoBtn.getAttribute("data-fid");
-        if(!friendId) return;
-        
-        openVideoModal();
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-            myStream = stream;
-            localVideo.srcObject = stream;
-            
-            const call = peer.call(friendId, stream);
-            call.on('stream', remoteStream => {
-                remoteVideo.srcObject = remoteStream;
-            });
-        }).catch(err => alert("Camera access denied"));
-    };
-
-    function openVideoModal() {
-        videoModal.classList.remove("hidden");
-    }
-
-    endCallBtn.onclick = () => {
-        if(myStream) myStream.getTracks().forEach(t => t.stop());
-        videoModal.classList.add("hidden");
-    };
+    // --- Video Call ---
+    function initPeer(uid) { if(peer) peer.destroy(); peer = new Peer(uid); peer.on('open', (id) => console.log('Peer ready:', id)); peer.on('call', (call) => { if(confirm("Incoming video call. Answer?")) { openVideoModal(); navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => { myStream = stream; localVideo.srcObject = stream; call.answer(stream); call.on('stream', remoteStream => { remoteVideo.srcObject = remoteStream; }); }).catch(err => alert("Camera access denied")); } }); }
+    videoBtn.onclick = () => { const friendId = videoBtn.getAttribute("data-fid"); if(!friendId) return; openVideoModal(); navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => { myStream = stream; localVideo.srcObject = stream; const call = peer.call(friendId, stream); call.on('stream', remoteStream => { remoteVideo.srcObject = remoteStream; }); }).catch(err => alert("Camera access denied")); };
+    function openVideoModal() { videoModal.classList.remove("hidden"); }
+    endCallBtn.onclick = () => { if(myStream) myStream.getTracks().forEach(t => t.stop()); videoModal.classList.add("hidden"); };
 
   </script>
 </head>
@@ -512,8 +377,6 @@
   <div id="loginView" class="min-h-screen flex items-center justify-center bg-gray-200">
     <div class="bg-white p-8 rounded-lg shadow-xl w-96">
         <h1 class="text-4xl font-bold text-fb text-center mb-6">khaji</h1>
-        
-        <!-- Login Form -->
         <div id="loginForm">
             <input id="loginEmailIn" type="email" placeholder="Email" class="w-full p-3 mb-3 border rounded-lg focus:outline-none focus:ring-2 ring-fb">
             <input id="loginPassIn" type="password" placeholder="Password" class="w-full p-3 mb-3 border rounded-lg focus:outline-none focus:ring-2 ring-fb">
@@ -521,8 +384,6 @@
             <hr class="my-4">
             <button id="showRegBtn" class="w-full bg-green-500 text-white py-3 rounded-lg font-bold hover:bg-green-600">Create New Account</button>
         </div>
-
-        <!-- Register Form (IDs Changed) -->
         <div id="regForm" class="hidden">
             <h2 class="text-xl font-bold mb-3 text-center">Sign Up</h2>
             <input id="regNameIn" type="text" placeholder="Full Name" class="w-full p-3 mb-3 border rounded-lg">
@@ -536,8 +397,6 @@
 
   <!-- MAIN APP VIEW -->
   <div id="appView" class="hidden min-h-screen bg-gray-100">
-    
-    <!-- Top Navbar -->
     <nav class="bg-fb h-14 flex items-center justify-between px-4 sticky top-0 z-40 shadow">
         <div class="flex items-center gap-2 flex-1">
             <h1 class="text-3xl text-white font-bold">khaji</h1>
@@ -546,7 +405,6 @@
                 <div id="searchResults" class="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-1 z-50 max-h-64 overflow-y-auto"></div>
             </div>
         </div>
-        
         <div class="flex items-center gap-4">
             <div class="flex items-center gap-2">
                 <img id="userPic" src="" class="w-8 h-8 rounded-full border-2 border-white object-cover">
@@ -556,10 +414,7 @@
         </div>
     </nav>
 
-    <!-- Main Content Grid -->
     <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 py-4 px-2">
-        
-        <!-- Left Sidebar -->
         <div class="space-y-4">
             <div class="bg-white rounded-lg shadow p-4">
                 <div class="flex items-center gap-3">
@@ -567,57 +422,45 @@
                     <h2 id="userNameSidebar" class="font-bold"></h2>
                 </div>
             </div>
-            
             <div class="bg-white rounded-lg shadow p-4">
                 <h3 class="font-bold text-gray-600 border-b pb-2 mb-2">Friend Requests</h3>
                 <div id="requestsContainer"></div>
             </div>
         </div>
 
-        <!-- Center (Feed) -->
         <div class="col-span-2 space-y-4">
-            <!-- Create Post Card -->
             <div class="bg-white rounded-lg shadow p-4">
                 <div class="flex gap-2">
                     <img id="postAvatar" src="" class="w-10 h-10 rounded-full">
                     <input id="postInput" type="text" placeholder="What's on your mind?" class="bg-gray-100 rounded-full px-4 py-2 flex-1 focus:outline-none">
                 </div>
-                
-                <!-- Image Preview -->
                 <div id="imagePreviewContainer" class="hidden relative mt-2">
                     <img id="imagePreview" class="w-full max-h-60 rounded object-contain bg-black">
                     <button id="removeImageBtn" class="absolute top-2 right-2 bg-gray-900 bg-opacity-60 text-white rounded-full p-1 hover:bg-opacity-100">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
-
                 <hr class="my-3">
-                
                 <div class="flex justify-between items-center">
                     <button id="photoPostBtn" class="flex items-center gap-2 text-green-500 hover:bg-gray-100 px-4 py-2 rounded-lg flex-1 justify-center">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        <span class="text-sm font-semibold">Photo</span>
+                        <span class="text-sm font-semibold">Photo (Free)</span>
                     </button>
                     <input type="file" id="postImageInput" accept="image/*" class="hidden">
-                    
                     <button id="postBtn" class="bg-fb text-white px-8 py-2 rounded-lg font-semibold hover:bg-fbHover">Post</button>
                 </div>
             </div>
-            
-            <!-- Posts Feed -->
             <div id="postsContainer"></div>
         </div>
 
-        <!-- Right Sidebar -->
         <div class="bg-white rounded-lg shadow p-4 h-max sticky top-20">
             <h3 class="font-bold text-gray-600 mb-2">Contacts</h3>
             <div id="friendsContainer" class="space-y-1 max-h-96 overflow-y-auto"></div>
         </div>
     </div>
-
   </div>
 
-  <!-- Floating Chat Box -->
+  <!-- Chat Box -->
   <div id="chatBox" class="hidden fixed bottom-0 right-4 w-80 bg-white shadow-2xl rounded-t-lg border z-40 flex flex-col h-96">
       <div class="bg-fb p-3 rounded-t-lg flex justify-between items-center cursor-pointer">
           <h3 id="chatTitle" class="text-white font-semibold"></h3>
