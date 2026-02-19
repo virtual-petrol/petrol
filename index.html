@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FuelFlow Premium | Smart Delivery</title>
+    <!-- Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --primary: #6366f1; /* Indigo */
+            --primary-glow: rgba(99, 102, 241, 0.5);
+            --accent: #f59e0b; /* Amber */
+            --success: #10b981;
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --glass: rgba(30, 41, 59, 0.7);
+            --border: rgba(255, 255, 255, 0.1);
+            --radius: 16px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        
+        body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; overflow: hidden; background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 20%), radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.1) 0%, transparent 20%); }
+
+        /* --- Utilities --- */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-4 { gap: 1rem; }
+        .w-full { width: 100%; }
+        .h-full { height: 100%; }
+
+        /* --- Buttons & Inputs --- */
+        .btn {
+            padding: 12px 24px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer;
+            transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; font-size: 1rem;
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), #4f46e5); color: white; box-shadow: 0 4px 15px var(--primary-glow); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px var(--primary-glow); }
+        .btn-glass { background: rgba(255,255,255,0.1); color: white; backdrop-filter: blur(10px); border: 1px solid var(--border); }
+        .btn-glass:hover { background: rgba(255,255,255,0.2); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-icon { width: 40px; height: 40px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+        /* --- Login Screen --- */
+        #auth-screen {
+            position: fixed; inset: 0; z-index: 1000; background: var(--bg-dark);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .auth-container { display: flex; gap: 20px; }
+        
+        .auth-card {
+            background: var(--glass); backdrop-filter: blur(20px); padding: 3rem;
+            border-radius: 24px; border: 1px solid var(--border); width: 100%; max-width: 400px;
+            text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: opacity 0.3s;
+        }
+        .auth-card.inactive { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
+        .auth-card:hover.inactive { opacity: 0.7; }
+
+        .form-input {
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2); color: white; margin-bottom: 1rem; outline: none;
+        }
+        .form-input:focus { border-color: var(--primary); }
+
+        /* --- App Layout --- */
+        .app-layout { display: flex; height: 100vh; }
+        
+        /* Sidebar */
+        .sidebar { width: 80px; background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 2rem 0; transition: width 0.3s; z-index: 50; }
+        .sidebar:hover { width: 240px; }
+        .sidebar-item {
+            width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted); margin-bottom: 1rem; cursor: pointer; transition: 0.2s; position: relative;
+            white-space: nowrap; overflow: hidden;
+        }
+        .sidebar-item:hover, .sidebar-item.active { background: var(--primary); color: white; }
+        .sidebar-item span { margin-left: 20px; opacity: 0; transition: 0.2s; font-weight: 500; }
+        .sidebar:hover .sidebar-item span { opacity: 1; }
+        .notification-dot {
+            position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; background: var(--accent);
+            border-radius: 50%; display: none; animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+
+        /* Main Content */
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; position: relative; }
+        
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .user-pill { display: flex; align-items: center; gap: 10px; background: var(--glass); padding: 6px 12px; border-radius: 30px; border: 1px solid var(--border); }
+        .online-status { width: 10px; height: 10px; background: var(--success); border-radius: 50%; box-shadow: 0 0 10px var(--success); }
+        .offline { background: var(--text-muted); box-shadow: none; }
+
+        /* Cards */
+        .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; margin-bottom: 1.5rem; position: relative; overflow: hidden; }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--primary); opacity: 0; transition: 0.3s; }
+        .card:hover::before { opacity: 1; }
+
+        /* Grid */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+
+        /* Chat Widget */
+        .chat-widget {
+            position: fixed; bottom: 30px; right: 30px; width: 350px; height: 500px;
+            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 20px;
+            display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transform: translateY(110%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 100;
+        }
+        .chat-widget.open { transform: translateY(0); }
+        .chat-header { padding: 15px; background: var(--primary); border-radius: 20px 20px 0 0; display: flex; justify-content: space-between; align-items: center; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; line-height: 1.4; }
+        .msg-me { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 2px; }
+        .msg-them { align-self: flex-start; background: rgba(255,255,255,0.1); color: var(--text-main); border-bottom-left-radius: 2px; }
+        .chat-input { padding: 15px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+        .chat-input input { background: rgba(0,0,0,0.2); border: none; color: white; padding: 10px; border-radius: 8px; flex: 1; outline: none; }
+
+        /* Video Call Modal */
+        #call-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000;
+            display: flex; align-items: center; justify-content: center; flex-direction: column;
+        }
+        #local-video { width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0; opacity: 0.6; }
+        .call-controls { position: absolute; bottom: 40px; display: flex; gap: 20px; z-index: 2001; }
+        .call-btn { width: 60px; height: 60px; border-radius: 50%; border: none; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .btn-hangup { background: var(--danger); color: white; }
+        .btn-mute { background: rgba(255,255,255,0.2); color: white; backdrop-filter: blur(5px); }
+
+        /* Status Badges */
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .status-pending { background: rgba(245, 158, 11, 0.2); color: var(--accent); }
+        .status-assigned { background: rgba(99, 102, 241, 0.2); color: var(--primary); }
+        .status-delivered { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+
+        /* Stats Card for Driver */
+        .stat-card { text-align: center; padding: 2rem; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+        .stat-number { font-size: 2.5rem; font-weight: 700; color: var(--success); margin: 10px 0; }
+
+    </style>
+</head>
+<body>
+
+    <!-- === AUTHENTICATION SCREEN === -->
+    <div id="auth-screen">
+        <div class="auth-container">
+            
+            <!-- Customer Login -->
+            <div class="auth-card" id="card-customer">
+                <div style="font-size: 3rem; color: var(--accent); margin-bottom: 1rem;">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h1 style="margin-bottom: 0.5rem;">Customer</h1>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;">Order fuel with your Google account</p>
+                <button class="btn" style="background:white; color:#333; width:100%; justify-content:center;" onclick="app.loginWithGoogle()">
+                    <i class="fab fa-google"></i> Sign in with Google
+                </button>
+                <div style="margin-top: 20px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;" onclick="app.toggleAuthMode('staff')">
+                    Are you Staff? Login here <i class="fas fa-arrow-right"></i>
+                </div>
+            </div>
+
+            <!-- Staff Login -->
+            <div class="auth-card inactive" id="card-staff">
+                <div style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;">
+                    <i class="fas fa-id-badge"></i>
+                </div>
+                <h1 style="margin-bottom: 0.5rem;">Staff Access</h1>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;">Admin & Driver Portal</p>
+                
+                <form onsubmit="app.loginStaff(event)">
+                    <input type="text" id="staff-user" class="form-input" placeholder="Username" required>
+                    <input type="password" id="staff-pass" class="form-input" placeholder="Password" required>
+                    <button class="btn btn-primary w-full">Login to Dashboard</button>
+                </form>
+
+                <div style="margin-top: 20px; font-size: 0.8rem; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+                    <strong>Demo Admin:</strong> admin / admin123<br>
+                    <strong>Demo Driver:</strong> driver1 / pass123
+                </div>
+
+                <div style="margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;" onclick="app.toggleAuthMode('customer')">
+                    <i class="fas fa-arrow-left"></i> Back to Customer Login
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- === MAIN APP === -->
+    <div id="app-container" class="app-layout hidden">
+        
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div style="color: var(--accent); font-size: 1.5rem; margin-bottom: 3rem;">
+                <i class="fas fa-bolt"></i>
+            </div>
+
+            <div class="sidebar-item active" onclick="app.navigate('dashboard')" title="Dashboard">
+                <i class="fas fa-th-large"></i> <span>Dashboard</span>
+            </div>
+            
+            <div class="sidebar-item" id="nav-orders" onclick="app.navigate('orders')" title="Orders">
+                <i class="fas fa-box"></i> <span>Orders</span>
+                <div class="notification-dot" id="nav-dot"></div>
+            </div>
+
+            <!-- Admin Only -->
+            <div class="sidebar-item hidden" id="nav-drivers" onclick="app.navigate('manage-drivers')" title="Manage Drivers">
+                <i class="fas fa-users-cog"></i> <span>Manage Drivers</span>
+            </div>
+
+            <div class="sidebar-item" onclick="app.logout()" style="margin-top: auto;" title="Logout">
+                <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div>
+                    <h2 id="page-title">Dashboard</h2>
+                    <p class="text-muted" id="page-subtitle">Welcome back</p>
+                </div>
+                <div class="user-pill">
+                    <div class="online-status" id="header-status"></div>
+                    <img id="user-avatar" src="" style="width: 32px; height: 32px; border-radius: 50%; background: #333;">
+                    <span id="user-name" style="font-weight: 500; font-size: 0.9rem;">User</span>
+                </div>
+            </header>
+
+            <div id="content-area">
+                <!-- Dynamic Content -->
+            </div>
+        </main>
+
+        <!-- Chat Widget -->
+        <div id="chat-widget" class="chat-widget">
+            <div class="chat-header">
+                <div class="flex items-center gap-2">
+                    <div class="online-status" style="width: 8px; height: 8px;"></div>
+                    <span id="chat-partner-name">Driver</span>
+                </div>
+                <div class="flex gap-2">
+                    <button class="btn-icon" style="color:white" onclick="app.startCall()"><i class="fas fa-video"></i></button>
+                    <button class="btn-icon" style="color:white" onclick="app.toggleChat()"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div id="chat-messages" class="chat-messages">
+                <!-- Messages -->
+            </div>
+            <div class="chat-input">
+                <input type="text" id="msg-input" placeholder="Type a message...">
+                <button class="btn btn-primary btn-icon" onclick="app.sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <!-- Floating Chat Button (Only when chat closed) -->
+        <button id="chat-fab" class="btn btn-primary" style="position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 50%; box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5); z-index: 90; display: none;" onclick="app.toggleChat()">
+            <i class="fas fa-comment-dots fa-lg"></i>
+        </button>
+
+    </div>
+
+    <!-- Video Call Modal -->
+    <div id="call-modal" class="hidden">
+        <video id="local-video" autoplay muted playsinline></video>
+        <div style="z-index: 2002; text-align: center; margin-bottom: 20px;">
+            <h2 style="color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.8);" id="call-status">Connecting...</h2>
+        </div>
+        <div class="call-controls">
+            <button class="call-btn btn-mute" onclick="app.toggleMute()"><i class="fas fa-microphone"></i></button>
+            <button class="call-btn btn-hangup" onclick="app.endCall()"><i class="fas fa-phone-slash"></i></button>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        /**
+         * CONFIGURATION
+         */
+        const USE_REAL_FIREBASE = false; 
+        
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // --- MOCK DATA SERVICE ---
+        class MockService {
+            constructor() {
+                this.orders = JSON.parse(localStorage.getItem('ff_orders') || '[]');
+                this.users = JSON.parse(localStorage.getItem('ff_users') || '[]');
+                this.chats = JSON.parse(localStorage.getItem('ff_chats') || '{}');
+                this.listeners = [];
+                
+                // Seed Data
+                if(this.users.length === 0) {
+                    this.users = [
+                        { id: 'admin', name: 'Admin', username: 'admin', password: 'admin123', role: 'admin', avatar: 'https://ui-avatars.com/api/?name=Admin&background=random' },
+                        { id: 'driver1', name: 'Mike Driver', username: 'driver1', password: 'pass123', role: 'driver', avatar: 'https://ui-avatars.com/api/?name=Mike&background=random' }
+                    ];
+                    this.save();
+                }
+            }
+
+            save() {
+                localStorage.setItem('ff_orders', JSON.stringify(this.orders));
+                localStorage.setItem('ff_users', JSON.stringify(this.users));
+                localStorage.setItem('ff_chats', JSON.stringify(this.chats));
+                this.notifyListeners();
+            }
+
+            notifyListeners() { this.listeners.forEach(cb => cb()); }
+            onSnapshot(callback) { this.listeners.push(callback); callback(); }
+
+            async addOrder(order) {
+                const price = order.fuel === 'Petrol' ? 1.50 : 1.45;
+                order.id = 'ORD-' + Date.now();
+                order.total = (order.liters * price).toFixed(2); // Store total for income calc
+                order.timestamp = Date.now();
+                this.orders.unshift(order);
+                this.save();
+                return order;
+            }
+
+            async updateOrder(id, updates) {
+                const idx = this.orders.findIndex(o => o.id === id);
+                if(idx > -1) {
+                    this.orders[idx] = { ...this.orders[idx], ...updates };
+                    this.save();
+                }
+            }
+
+            async addUser(user) {
+                user.id = 'usr-' + Date.now();
+                this.users.push(user);
+                this.save();
+                return user;
+            }
+
+            async deleteUser(id) {
+                this.users = this.users.filter(u => u.id !== id);
+                this.save();
+            }
+
+            async sendMessage(orderId, msg) {
+                if(!this.chats[orderId]) this.chats[orderId] = [];
+                this.chats[orderId].push(msg);
+                this.save();
+            }
+        }
+
+        // --- APP LOGIC ---
+        class App {
+            constructor() {
+                this.db = null;
+                this.auth = null;
+                this.currentUser = null;
+                this.mock = new MockService();
+                this.currentOrderId = null; 
+                this.localStream = null;
+                this.initFirebase();
+            }
+
+            initFirebase() {
+                if (USE_REAL_FIREBASE && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                    firebase.initializeApp(firebaseConfig);
+                    this.db = firebase.firestore();
+                    this.auth = firebase.auth();
+                    this.auth.onAuthStateChanged((user) => {
+                        if (user) this.handleLoginSuccess({ uid: user.uid, displayName: user.displayName, photoURL: user.photoURL, role: 'customer' });
+                    });
+                }
+            }
+
+            // --- AUTHENTICATION ---
+
+            toggleAuthMode(mode) {
+                const custCard = document.getElementById('card-customer');
+                const staffCard = document.getElementById('card-staff');
+                if(mode === 'staff') {
+                    custCard.classList.add('inactive');
+                    staffCard.classList.remove('inactive');
+                } else {
+                    custCard.classList.remove('inactive');
+                    staffCard.classList.add('inactive');
+                }
+            }
+
+            loginWithGoogle() {
+                if (USE_REAL_FIREBASE) {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    this.auth.signInWithPopup(provider).catch(e => alert(e.message));
+                } else {
+                    this.handleLoginSuccess({
+                        uid: 'cust_mock_1',
+                        displayName: 'Google User',
+                        photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+                        role: 'customer'
+                    });
+                }
+            }
+
+            loginStaff(e) {
+                e.preventDefault();
+                const u = document.getElementById('staff-user').value;
+                const p = document.getElementById('staff-pass').value;
+                
+                const user = this.mock.users.find(user => user.username === u && user.password === p);
+
+                if (user) {
+                    this.handleLoginSuccess(user);
+                } else {
+                    alert('Invalid Staff Credentials');
+                }
+            }
+
+            handleLoginSuccess(user) {
+                this.currentUser = user;
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('app-container').classList.remove('hidden');
+                
+                document.getElementById('user-name').innerText = user.displayName || user.name;
+                document.getElementById('user-avatar').src = user.photoURL || `https://ui-avatars.com/api/?name=${user.name}&background=random`;
+                document.getElementById('header-status').classList.remove('offline');
+
+                // Role-based UI setup
+                if(user.role === 'admin') {
+                    document.getElementById('nav-drivers').classList.remove('hidden');
+                }
+
+                this.setupRealtimeListeners();
+                this.navigate('dashboard');
+            }
+
+            logout() {
+                if(this.auth) this.auth.signOut();
+                location.reload();
+            }
+
+            // --- REALTIME ---
+            setupRealtimeListeners() {
+                const renderCallback = () => {
+                    this.renderDashboard();
+                    this.checkForNotifications();
+                    if(this.currentOrderId) this.renderChat();
+                };
+
+                if (USE_REAL_FIREBASE) {
+                    this.db.collection('orders').orderBy('timestamp', 'desc').onSnapshot(snapshot => {
+                        this.orders = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                        renderCallback();
+                    });
+                } else {
+                    this.mock.onSnapshot(() => {
+                        this.orders = this.mock.orders;
+                        renderCallback();
+                    });
+                }
+            }
+
+            checkForNotifications() {
+                const dot = document.getElementById('nav-dot');
+                if (this.currentUser.role === 'driver') {
+                    const hasPending = this.orders.some(o => o.status === 'pending');
+                    dot.style.display = hasPending ? 'block' : 'none';
+                    if(hasPending) this.playSound();
+                } else {
+                    dot.style.display = 'none';
+                }
+            }
+
+            playSound() {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                oscillator.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.1);
+            }
+
+            // --- NAVIGATION ---
+            navigate(view) {
+                document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+                
+                // Simple logic to highlight nav (0=dashboard, 1=orders, 2=drivers)
+                if(view === 'dashboard') document.querySelectorAll('.sidebar-item')[0].classList.add('active');
+                if(view === 'orders') document.querySelectorAll('.sidebar-item')[1].classList.add('active');
+                if(view === 'manage-drivers') document.querySelectorAll('.sidebar-item')[2].classList.add('active');
+
+                const title = document.getElementById('page-title');
+                const content = document.getElementById('content-area');
+                
+                if (view === 'dashboard') {
+                    title.innerText = 'Dashboard';
+                    this.renderDashboard();
+                } else if (view === 'orders') {
+                    title.innerText = 'Order Tracer';
+                    this.renderOrderList();
+                } else if (view === 'manage-drivers') {
+                    title.innerText = 'Manage Drivers';
+                    this.renderManageDrivers();
+                }
+            }
+
+            renderDashboard() {
+                const content = document.getElementById('content-area');
+                
+                if (this.currentUser.role === 'customer') {
+                    content.innerHTML = `
+                        <div class="card" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                            <h2>Request Fuel</h2>
+                            <p style="opacity: 0.8; margin-bottom: 1rem;">Get premium fuel delivered instantly.</p>
+                            <button class="btn btn-glass" onclick="app.showOrderForm()">New Order</button>
+                        </div>
+                        <div id="customer-active-orders" class="grid"></div>
+                    `;
+                    this.renderCustomerOrders();
+                } 
+                else if (this.currentUser.role === 'driver') {
+                    // Calculate Stats
+                    const myDeliveries = this.orders.filter(o => o.driverId === this.currentUser.uid && o.status === 'delivered');
+                    const totalDelivered = myDeliveries.length;
+                    // Income calc: 10% commission of order total
+                    const totalIncome = myDeliveries.reduce((acc, o) => acc + (parseFloat(o.total) * 0.10), 0).toFixed(2);
+
+                    content.innerHTML = `
+                        <div class="grid-2 mb-4">
+                            <div class="card stat-card">
+                                <h3>Total Deliveries</h3>
+                                <div class="stat-number">${totalDelivered}</div>
+                                <p class="text-muted">Items delivered successfully</p>
+                            </div>
+                            <div class="card stat-card">
+                                <h3>Total Income</h3>
+                                <div class="stat-number">$${totalIncome}</div>
+                                <p class="text-muted">10% Commission earned</p>
+                            </div>
+                        </div>
+                        <div id="driver-jobs" class="grid"></div>
+                    `;
+                    this.renderDriverJobs();
+                }
+                else if (this.currentUser.role === 'admin') {
+                     content.innerHTML = `<div class="card text-center"><h3>Welcome Admin</h3><p class="text-muted">Use the sidebar to manage drivers or view the order tracer.</p></div>`;
+                }
+            }
+
+            showOrderForm() {
+                const content = document.getElementById('content-area');
+                content.innerHTML = `
+                    <div class="card" style="max-width: 500px; margin: 0 auto;">
+                        <h3>New Delivery Request</h3>
+                        <div class="flex flex-col gap-4 mt-4">
+                            <div>
+                                <label>Fuel Type</label>
+                                <select id="fuel-type" class="form-input">
+                                    <option value="Petrol">Petrol (Premium) - $1.50/L</option>
+                                    <option value="Diesel">Diesel - $1.45/L</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Quantity (Liters)</label>
+                                <input type="number" id="fuel-qty" class="form-input" min="5" value="20">
+                            </div>
+                            <div>
+                                <label>Location (GPS Auto-detect)</label>
+                                <div class="flex gap-2">
+                                    <input type="text" value="Current Location (GPS)" readonly class="form-input">
+                                    <button class="btn btn-primary"><i class="fas fa-map-marker-alt"></i></button>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary w-full" onclick="app.placeOrder()">Confirm Request</button>
+                            <button class="btn btn-glass w-full" onclick="app.navigate('dashboard')">Cancel</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            async placeOrder() {
+                const type = document.getElementById('fuel-type').value;
+                const qty = document.getElementById('fuel-qty').value;
+                const order = {
+                    customerName: this.currentUser.displayName,
+                    customerUid: this.currentUser.uid,
+                    fuel: type,
+                    liters: qty,
+                    location: 'Current GPS Location',
+                    status: 'pending',
+                    driverId: null
+                };
+
+                if (USE_REAL_FIREBASE) {
+                    await this.db.collection('orders').add(order);
+                } else {
+                    await this.mock.addOrder(order);
+                }
+                
+                this.showToast('Order Placed! Drivers are notified.');
+                this.navigate('dashboard');
+            }
+
+            renderCustomerOrders() {
+                const container = document.getElementById('customer-active-orders');
+                if(!container) return;
+                
+                const myOrders = this.orders.filter(o => o.customerUid === this.currentUser.uid);
+                
+                container.innerHTML = myOrders.map(o => {
+                    const statusColor = o.status === 'pending' ? 'status-pending' : (o.status === 'assigned' ? 'status-assigned' : 'status-delivered');
+                    const action = o.status === 'assigned' 
+                        ? `<button class="btn btn-glass btn-sm" onclick="app.openChat('${o.id}', 'Driver')">Chat Driver</button>` 
+                        : '';
+
+                    return `
+                    <div class="card">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="status-badge ${statusColor}">${o.status}</span>
+                            <small class="text-muted">Just now</small>
+                        </div>
+                        <h3>${o.liters}L ${o.fuel}</h3>
+                        <p class="text-muted"><i class="fas fa-map-pin"></i> ${o.location}</p>
+                        <div class="mt-4 flex justify-between items-center">
+                            ${action}
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            renderDriverJobs() {
+                const container = document.getElementById('driver-jobs');
+                if(!container) return;
+
+                const jobs = this.orders.filter(o => o.status === 'pending' || (o.status === 'assigned' && o.driverId === this.currentUser.uid));
+
+                container.innerHTML = jobs.map(o => {
+                    const isMine = o.driverId === this.currentUser.uid;
+                    let btn = '';
+                    
+                    if (o.status === 'pending') {
+                        btn = `<button class="btn btn-primary w-full" onclick="app.acceptJob('${o.id}')">Accept Job</button>`;
+                    } else if (isMine) {
+                        btn = `
+                            <div class="flex gap-2 mt-2">
+                                <button class="btn btn-glass w-full" onclick="app.openChat('${o.id}', '${o.customerName}')"><i class="fas fa-comment"></i> Chat</button>
+                                <button class="btn btn-primary w-full" onclick="app.completeJob('${o.id}')">Complete</button>
+                            </div>
+                        `;
+                    }
+
+                    return `
+                    <div class="card" style="${isMine ? 'border-color: var(--primary);' : ''}">
+                        <h3>${o.liters}L ${o.fuel} Delivery</h3>
+                        <p class="text-muted mb-4">Requester: ${o.customerName}</p>
+                        <p class="text-muted mb-4"><i class="fas fa-map-pin"></i> ${o.location}</p>
+                        ${btn}
+                    </div>`;
+                }).join('');
+                
+                if(jobs.length === 0) container.innerHTML = `<div class="card text-center"><p class="text-muted">No active jobs right now.</p></div>`;
+            }
+
+            renderOrderList() {
+                const container = document.getElementById('content-area');
+                container.innerHTML = `
+                    <div class="card table-container">
+                        <table style="width:100%; text-align:left; border-collapse:collapse;">
+                            <thead><tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th>ID</th><th>Customer</th><th>Driver</th><th>Details</th><th>Status</th></tr></thead>
+                            <tbody>
+                                ${this.orders.map(o => {
+                                    const driver = this.mock.users.find(u => u.id === o.driverId);
+                                    return `
+                                    <tr style="border-bottom:1px solid var(--border);">
+                                        <td style="padding:15px;">${o.id}</td>
+                                        <td>${o.customerName}</td>
+                                        <td>${driver ? driver.name : '-'}</td>
+                                        <td>${o.liters}L ${o.fuel} ($${o.total})</td>
+                                        <td><span class="status-badge status-${o.status}">${o.status}</span></td>
+                                    </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            // --- ADMIN: MANAGE DRIVERS ---
+            renderManageDrivers() {
+                const container = document.getElementById('content-area');
+                const drivers = this.mock.users.filter(u => u.role === 'driver');
+
+                let html = `
+                    <div class="grid-2">
+                        <div class="card">
+                            <h3>Create Driver Credential</h3>
+                            <div class="flex flex-col gap-4 mt-4">
+                                <input type="text" id="new-name" class="form-input" placeholder="Full Name">
+                                <input type="text" id="new-user" class="form-input" placeholder="Username">
+                                <input type="text" id="new-pass" class="form-input" placeholder="Password">
+                                <button class="btn btn-primary" onclick="app.createDriver()">Add Driver</button>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h3>Existing Drivers</h3>
+                            <div class="mt-4" style="max-height: 300px; overflow-y: auto;">
+                                ${drivers.map(d => `
+                                    <div class="flex justify-between items-center" style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+                                        <div>
+                                            <div style="font-weight:bold;">${d.name}</div>
+                                            <div class="text-muted" style="font-size:0.8rem;">@${d.username}</div>
+                                        </div>
+                                        <button class="btn btn-danger btn-sm" onclick="app.deleteDriver('${d.id}')"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML = html;
+            }
+
+            async createDriver() {
+                const name = document.getElementById('new-name').value;
+                const user = document.getElementById('new-user').value;
+                const pass = document.getElementById('new-pass').value;
+
+                if(!name || !user || !pass) return alert('Fill all fields');
+
+                await this.mock.addUser({
+                    name, username: user, password: pass, role: 'driver',
+                    avatar: `https://ui-avatars.com/api/?name=${name}&background=random`
+                });
+
+                this.showToast('Driver Added');
+                this.renderManageDrivers();
+            }
+
+            async deleteDriver(id) {
+                if(confirm('Delete this driver?')) {
+                    await this.mock.deleteUser(id);
+                    this.renderManageDrivers();
+                }
+            }
+
+            async acceptJob(id) {
+                if(USE_REAL_FIREBASE) await this.db.collection('orders').doc(id).update({ status: 'assigned', driverId: this.currentUser.uid });
+                else await this.mock.updateOrder(id, { status: 'assigned', driverId: this.currentUser.uid });
+                this.showToast('Job Accepted');
+            }
+
+            async completeJob(id) {
+                if(USE_REAL_FIREBASE) await this.db.collection('orders').doc(id).update({ status: 'delivered' });
+                else await this.mock.updateOrder(id, { status: 'delivered' });
+                this.showToast('Job Completed');
+                document.getElementById('chat-widget').classList.remove('open');
+                document.getElementById('chat-fab').style.display = 'none';
+            }
+
+            // --- CHAT & CALL ---
+            openChat(orderId, partnerName) {
+                this.currentOrderId = orderId;
+                document.getElementById('chat-partner-name').innerText = partnerName;
+                document.getElementById('chat-widget').classList.add('open');
+                document.getElementById('chat-fab').style.display = 'none';
+                this.renderChat();
+            }
+
+            toggleChat() {
+                const widget = document.getElementById('chat-widget');
+                const fab = document.getElementById('chat-fab');
+                if(widget.classList.contains('open')) {
+                    widget.classList.remove('open');
+                    fab.style.display = 'flex';
+                } else {
+                    widget.classList.add('open');
+                    fab.style.display = 'none';
+                }
+            }
+
+            async sendMessage() {
+                const input = document.getElementById('msg-input');
+                const text = input.value.trim();
+                if(!text || !this.currentOrderId) return;
+                const msg = { text: text, sender: this.currentUser.displayName, senderId: this.currentUser.uid, timestamp: Date.now() };
+                
+                if(USE_REAL_FIREBASE) await this.db.collection('chats').doc(this.currentOrderId).collection('messages').add(msg);
+                else await this.mock.sendMessage(this.currentOrderId, msg);
+                
+                input.value = '';
+                this.renderChat();
+            }
+
+            renderChat() {
+                const container = document.getElementById('chat-messages');
+                let msgs = [];
+                if(USE_REAL_FIREBASE) { /* Real listener logic */ } 
+                else { msgs = this.mock.chats[this.currentOrderId] || []; }
+
+                container.innerHTML = msgs.map(m => `
+                    <div class="message ${m.senderId === this.currentUser.uid ? 'msg-me' : 'msg-them'}">
+                        <small style="font-size:0.7rem; opacity:0.7; display:block; margin-bottom:2px;">${m.sender}</small>
+                        ${m.text}
+                    </div>
+                `).join('');
+                container.scrollTop = container.scrollHeight;
+            }
+
+            async startCall() {
+                const modal = document.getElementById('call-modal');
+                const video = document.getElementById('local-video');
+                modal.classList.remove('hidden');
+                try {
+                    this.localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    video.srcObject = this.localStream;
+                    document.getElementById('call-status').innerText = "Connected: " + document.getElementById('chat-partner-name').innerText;
+                } catch (err) {
+                    alert("Camera access denied. (Note: Requires HTTPS)");
+                    this.endCall();
+                }
+            }
+
+            endCall() {
+                const modal = document.getElementById('call-modal');
+                modal.classList.add('hidden');
+                if(this.localStream) {
+                    this.localStream.getTracks().forEach(track => track.stop());
+                    this.localStream = null;
+                }
+                document.getElementById('local-video').srcObject = null;
+            }
+
+            toggleMute() {
+                if(this.localStream) {
+                    const audioTrack = this.localStream.getAudioTracks()[0];
+                    audioTrack.enabled = !audioTrack.enabled;
+                    this.showToast(audioTrack.enabled ? "Microphone On" : "Microphone Muted");
+                }
+            }
+
+            showToast(msg) {
+                const toast = document.createElement('div');
+                toast.style.cssText = `position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg-panel); color: white; padding: 12px 24px; border-radius: 30px; border: 1px solid var(--primary); z-index: 3000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);`;
+                toast.innerText = msg;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+        }
+
+        const app = new App();
+    </script>
+</body>
+</html>
