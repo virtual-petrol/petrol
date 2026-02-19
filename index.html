@@ -3,188 +3,164 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Social App</title>
-  <!-- Tailwind CSS CDN -->
+  <title>Khaji Social App</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getStorage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp, doc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
+    // 🔹 Firebase Config
     const firebaseConfig = {
-      apiKey: "YOUR_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
+      authDomain: "khaji-23a99.firebaseapp.com",
+      projectId: "khaji-23a99",
+      storageBucket: "khaji-23a99.appspot.com",
+      messagingSenderId: "84794766200",
+      appId: "1:84794766200:web:6f67917ca967334675ce8d",
+      measurementId: "G-QQQQ2ERH10"
     };
 
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
-    window.auth = getAuth(app);
-    window.db = getFirestore(app);
-    window.storage = getStorage(app);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // ---------------- DOM Elements ----------------
+    const loginSection = document.getElementById("loginSection");
+    const appSection = document.getElementById("appSection");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const nameInput = document.getElementById("name");
+    const loginBtn = document.getElementById("loginBtn");
+    const registerBtn = document.getElementById("registerBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const postInput = document.getElementById("postInput");
+    const postBtn = document.getElementById("postBtn");
+    const postsDiv = document.getElementById("posts");
+    const fileInput = document.getElementById("profilePic");
+
+    // ---------------- Auth Functions ----------------
+    registerBtn.onclick = async () => {
+      const email = emailInput.value;
+      const password = passwordInput.value;
+      const name = nameInput.value || "Anonymous";
+      if(!email || !password) return alert("Email & Password required");
+
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // Create user profile in Firestore
+      await setDoc(doc(db, "users", uid), {
+        name,
+        email,
+        online: true,
+        createdAt: serverTimestamp(),
+        photoURL: ""
+      });
+    };
+
+    loginBtn.onclick = async () => {
+      const email = emailInput.value;
+      const password = passwordInput.value;
+      if(!email || !password) return alert("Email & Password required");
+      await signInWithEmailAndPassword(auth, email, password);
+    };
+
+    logoutBtn.onclick = async () => {
+      await signOut(auth);
+    };
+
+    // ---------------- Auth State ----------------
+    onAuthStateChanged(auth, async user => {
+      if(user){
+        loginSection.classList.add("hidden");
+        appSection.classList.remove("hidden");
+        // Set online status
+        await setDoc(doc(db, "users", user.uid), {online:true}, {merge:true});
+        initPosts();
+      } else {
+        loginSection.classList.remove("hidden");
+        appSection.classList.add("hidden");
+      }
+    });
+
+    // ---------------- Posts ----------------
+    postBtn.onclick = async () => {
+      const text = postInput.value;
+      if(!text) return;
+      await addDoc(collection(db, "posts"), {
+        text,
+        userId: auth.currentUser.uid,
+        createdAt: serverTimestamp()
+      });
+      postInput.value = "";
+    };
+
+    function initPosts(){
+      const postsCol = collection(db, "posts");
+      onSnapshot(postsCol, snapshot => {
+        postsDiv.innerHTML = "";
+        snapshot.forEach(doc => {
+          postsDiv.innerHTML += `<div class="p-2 bg-gray-100 rounded mb-2">${doc.data().text}</div>`;
+        });
+      });
+    }
+
+    // ---------------- Profile Picture Upload ----------------
+    fileInput.onchange = async () => {
+      const file = fileInput.files[0];
+      if(!file) return;
+      const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      await setDoc(doc(db, "users", auth.currentUser.uid), {photoURL: url}, {merge:true});
+      alert("Profile Picture Uploaded!");
+    };
+
   </script>
 </head>
-<body class="bg-gray-100 font-sans">
+<body class="bg-gray-100 p-4 font-sans">
 
-<!-- Container -->
-<div class="max-w-5xl mx-auto p-4">
-
-  <!-- 🔐 Auth Section -->
-  <div id="authSection" class="bg-white p-6 rounded shadow-md mt-8">
+  <!-- 🔐 Login/Register -->
+  <div id="loginSection" class="max-w-md mx-auto bg-white p-6 rounded shadow mt-8">
     <h1 class="text-2xl font-bold mb-4">Login / Register</h1>
+    <input id="name" type="text" placeholder="Name (for register)" class="border p-2 rounded w-full mb-2">
     <input id="email" type="email" placeholder="Email" class="border p-2 rounded w-full mb-2">
     <input id="password" type="password" placeholder="Password" class="border p-2 rounded w-full mb-4">
     <div class="flex gap-2">
-      <button onclick="register()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Register</button>
-      <button onclick="login()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Login</button>
+      <button id="registerBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Register</button>
+      <button id="loginBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Login</button>
     </div>
   </div>
 
-  <!-- 📰 Feed Section -->
-  <div id="feedSection" class="hidden mt-8">
-    <h2 class="text-xl font-bold mb-2">Create Post</h2>
-    <textarea id="postText" placeholder="Write something..." class="border p-2 rounded w-full mb-2"></textarea>
-    <button onclick="addPost()" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600">Post</button>
-    <div id="posts" class="mt-4 space-y-2"></div>
-  </div>
+  <!-- 🌐 App Section -->
+  <div id="appSection" class="hidden max-w-3xl mx-auto mt-8">
 
-  <!-- 💬 Chat Section -->
-  <div id="chatSection" class="hidden mt-8 bg-white p-4 rounded shadow-md">
-    <h2 class="text-xl font-bold mb-2">Global Chat</h2>
-    <div id="chatBox" class="h-48 overflow-y-scroll border p-2 rounded mb-2 bg-gray-50"></div>
-    <div class="flex gap-2">
-      <input id="message" placeholder="Type message..." class="border p-2 rounded flex-1">
-      <button onclick="sendMessage()" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">Send</button>
+    <div class="flex justify-between mb-4">
+      <h2 class="text-xl font-bold">Welcome!</h2>
+      <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
     </div>
-  </div>
 
-  <!-- 📹 Video Call Section -->
-  <div id="videoSection" class="hidden mt-8 bg-white p-4 rounded shadow-md">
-    <h2 class="text-xl font-bold mb-2">Video Call</h2>
-    <div class="flex gap-4">
-      <video id="localVideo" autoplay muted class="w-1/2 rounded shadow"></video>
-      <video id="remoteVideo" autoplay class="w-1/2 rounded shadow"></video>
+    <!-- Profile Pic -->
+    <div class="mb-4">
+      <input id="profilePic" type="file">
     </div>
-    <button onclick="startCall()" class="mt-2 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Start Call</button>
+
+    <!-- Post -->
+    <div class="mb-4">
+      <textarea id="postInput" placeholder="Write something..." class="border p-2 rounded w-full mb-2"></textarea>
+      <button id="postBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600">Post</button>
+    </div>
+
+    <!-- Posts Feed -->
+    <div id="posts" class="space-y-2"></div>
+
   </div>
-
-</div>
-
-<!-- JS Logic -->
-<script type="module">
-  import { createUserWithEmailAndPassword, signInWithEmailAndPassword } 
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { collection, addDoc, onSnapshot } 
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-  // Sections
-  const authSection = document.getElementById('authSection');
-  const feedSection = document.getElementById('feedSection');
-  const chatSection = document.getElementById('chatSection');
-  const videoSection = document.getElementById('videoSection');
-
-  // ------------------- Authentication -------------------
-  window.register = async () => {
-    try {
-      const emailVal = document.getElementById('email').value;
-      const passwordVal = document.getElementById('password').value;
-      await createUserWithEmailAndPassword(auth, emailVal, passwordVal);
-      alert("Registered Successfully");
-      showApp();
-    } catch(e) { alert(e.message) }
-  };
-
-  window.login = async () => {
-    try {
-      const emailVal = document.getElementById('email').value;
-      const passwordVal = document.getElementById('password').value;
-      await signInWithEmailAndPassword(auth, emailVal, passwordVal);
-      showApp();
-    } catch(e) { alert(e.message) }
-  };
-
-  const showApp = () => {
-    authSection.classList.add('hidden');
-    feedSection.classList.remove('hidden');
-    chatSection.classList.remove('hidden');
-    videoSection.classList.remove('hidden');
-    initPosts();
-    initChat();
-    initVideo();
-  };
-
-  // ------------------- Posts -------------------
-  const postsDiv = document.getElementById('posts');
-  const postsCol = collection(db, "posts");
-
-  window.addPost = async () => {
-    const text = document.getElementById('postText').value;
-    if(!text) return;
-    await addDoc(postsCol, {
-      userId: auth.currentUser.uid,
-      text,
-      createdAt: Date.now()
-    });
-    document.getElementById('postText').value = "";
-  };
-
-  const initPosts = () => {
-    onSnapshot(postsCol, snapshot => {
-      postsDiv.innerHTML = "";
-      snapshot.forEach(doc => {
-        postsDiv.innerHTML += `<div class="bg-gray-50 p-2 rounded shadow">${doc.data().text}</div>`;
-      });
-    });
-  };
-
-  // ------------------- Chat -------------------
-  const chatBox = document.getElementById('chatBox');
-  const chatCol = collection(db, "chats", "globalChat", "messages");
-
-  window.sendMessage = async () => {
-    const msg = document.getElementById('message').value;
-    if(!msg) return;
-    await addDoc(chatCol, {
-      sender: auth.currentUser.uid,
-      text: msg,
-      createdAt: Date.now()
-    });
-    document.getElementById('message').value = "";
-  };
-
-  const initChat = () => {
-    onSnapshot(chatCol, snapshot => {
-      chatBox.innerHTML = "";
-      snapshot.forEach(doc => {
-        chatBox.innerHTML += `<p class="p-1 bg-gray-100 rounded mb-1">${doc.data().text}</p>`;
-      });
-      chatBox.scrollTop = chatBox.scrollHeight;
-    });
-  };
-
-  // ------------------- Video Call -------------------
-  let pc;
-  const localVideo = document.getElementById('localVideo');
-  const remoteVideo = document.getElementById('remoteVideo');
-
-  const initVideo = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = stream;
-    pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
-    pc.ontrack = e => { remoteVideo.srcObject = e.streams[0]; };
-  };
-
-  window.startCall = async () => {
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    alert("Offer created! Implement Firestore signaling for real video call.");
-  };
-</script>
 
 </body>
 </html>
