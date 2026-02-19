@@ -1,0 +1,25 @@
+<input id="postText" placeholder="Write something">
+<button onclick="addPost()">Post</button>
+
+<div id="posts"></div>
+
+<script type="module">
+import { db, auth } from "./firebase.js";
+import { collection, addDoc, onSnapshot }
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+window.addPost = async () => {
+  await addDoc(collection(db, "posts"), {
+    userId: auth.currentUser.uid,
+    text: postText.value,
+    createdAt: Date.now()
+  });
+};
+
+onSnapshot(collection(db, "posts"), snapshot => {
+  posts.innerHTML = "";
+  snapshot.forEach(doc => {
+    posts.innerHTML += `<p>${doc.data().text}</p>`;
+  });
+});
+</script>
