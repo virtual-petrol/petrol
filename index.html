@@ -3,17 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Khaji Social App</title>
+  <title>Khaji Social Network</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Animation for Toast */
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .toast-animate {
+      animation: slideIn 0.3s ease-out forwards;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp, doc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp, doc, setDoc, getDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-    // 🔹 Firebase Config
+    // 🔹 Firebase Config (Unchanged)
     const firebaseConfig = {
       apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
       authDomain: "khaji-23a99.firebaseapp.com",
@@ -43,36 +72,104 @@
     const postBtn = document.getElementById("postBtn");
     const postsDiv = document.getElementById("posts");
     const fileInput = document.getElementById("profilePic");
+    const userAvatarHeader = document.getElementById("userAvatarHeader");
+    const userNameHeader = document.getElementById("userNameHeader");
+    const toastContainer = document.getElementById("toastContainer");
+
+    // ---------------- Helper Functions ----------------
+    const showLoading = (btn, text) => {
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="animate-spin h-5 w-5 mr-2 inline" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg> ${text}`;
+    };
+
+    const resetBtn = (btn, text, bgColor) => {
+      btn.disabled = false;
+      btn.innerHTML = text;
+      btn.className = `${bgColor} text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition duration-200 flex items-center justify-center w-full`;
+    };
+
+    const showToast = (message, type = 'success') => {
+      const color = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+      const toast = document.createElement('div');
+      toast.className = `${color} text-white px-4 py-3 rounded-lg shadow-lg mb-2 toast-animate flex items-center`;
+      toast.innerHTML = `
+        <span class="mr-2">${type === 'success' ? '✓' : '✕'}</span>
+        ${message}
+      `;
+      toastContainer.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    };
+
+    const timeAgo = (date) => {
+      if (!date) return "Just now";
+      const seconds = Math.floor((new Date() - date.toDate()) / 1000);
+      let interval = seconds / 31536000;
+      if (interval > 1) return Math.floor(interval) + " years ago";
+      interval = seconds / 2592000;
+      if (interval > 1) return Math.floor(interval) + " months ago";
+      interval = seconds / 86400;
+      if (interval > 1) return Math.floor(interval) + " days ago";
+      interval = seconds / 3600;
+      if (interval > 1) return Math.floor(interval) + " hours ago";
+      interval = seconds / 60;
+      if (interval > 1) return Math.floor(interval) + " minutes ago";
+      return "Just now";
+    };
 
     // ---------------- Auth Functions ----------------
     registerBtn.onclick = async () => {
       const email = emailInput.value;
       const password = passwordInput.value;
       const name = nameInput.value || "Anonymous";
-      if(!email || !password) return alert("Email & Password required");
+      if(!email || !password) return showToast("Email & Password required", "error");
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const uid = userCredential.user.uid;
+      showLoading(registerBtn, "Creating...");
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = userCredential.user.uid;
 
-      // Create user profile in Firestore
-      await setDoc(doc(db, "users", uid), {
-        name,
-        email,
-        online: true,
-        createdAt: serverTimestamp(),
-        photoURL: ""
-      });
+        // Create user profile in Firestore
+        await setDoc(doc(db, "users", uid), {
+          name,
+          email,
+          online: true,
+          createdAt: serverTimestamp(),
+          photoURL: ""
+        });
+        showToast("Account created successfully!");
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        resetBtn(registerBtn, "Create Account", "bg-indigo-600");
+      }
     };
 
     loginBtn.onclick = async () => {
       const email = emailInput.value;
       const password = passwordInput.value;
-      if(!email || !password) return alert("Email & Password required");
-      await signInWithEmailAndPassword(auth, email, password);
+      if(!email || !password) return showToast("Email & Password required", "error");
+
+      showLoading(loginBtn, "Signing in...");
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        showToast("Welcome back!");
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        resetBtn(loginBtn, "Sign In", "bg-indigo-600");
+      }
     };
 
     logoutBtn.onclick = async () => {
-      await signOut(auth);
+      try {
+        await signOut(auth);
+        showToast("Logged out successfully");
+      } catch (error) {
+        showToast(error.message, "error");
+      }
     };
 
     // ---------------- Auth State ----------------
@@ -80,8 +177,19 @@
       if(user){
         loginSection.classList.add("hidden");
         appSection.classList.remove("hidden");
+        
+        // Fetch user data for header
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          userNameHeader.textContent = userData.name || "User";
+          const photoUrl = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=4F46E5&color=fff`;
+          userAvatarHeader.src = photoUrl;
+        }
+
         // Set online status
-        await setDoc(doc(db, "users", user.uid), {online:true}, {merge:true});
+        await setDoc(doc(db, "users", user.uid), { online: true }, { merge: true });
+        
         initPosts();
       } else {
         loginSection.classList.remove("hidden");
@@ -91,22 +199,64 @@
 
     // ---------------- Posts ----------------
     postBtn.onclick = async () => {
-      const text = postInput.value;
-      if(!text) return;
-      await addDoc(collection(db, "posts"), {
-        text,
-        userId: auth.currentUser.uid,
-        createdAt: serverTimestamp()
-      });
-      postInput.value = "";
+      const text = postInput.value.trim();
+      if(!text) return showToast("Please write something", "error");
+
+      postBtn.disabled = true;
+      try {
+        // Get current user data to denormalize (save name/photo with post)
+        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+        const userData = userDoc.data();
+
+        await addDoc(collection(db, "posts"), {
+          text,
+          userId: auth.currentUser.uid,
+          userName: userData.name || "Anonymous",
+          userPhoto: userData.photoURL || "",
+          createdAt: serverTimestamp()
+        });
+        postInput.value = "";
+        showToast("Post published!");
+      } catch (error) {
+        showToast(error.message, "error");
+      } finally {
+        postBtn.disabled = false;
+      }
     };
 
     function initPosts(){
-      const postsCol = collection(db, "posts");
-      onSnapshot(postsCol, snapshot => {
+      const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+      onSnapshot(q, snapshot => {
+        if (snapshot.empty) {
+           postsDiv.innerHTML = `
+            <div class="text-center text-gray-400 py-10">
+              <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+              <p class="font-medium">No posts yet</p>
+              <p>Be the first to share something!</p>
+            </div>`;
+          return;
+        }
+
         postsDiv.innerHTML = "";
         snapshot.forEach(doc => {
-          postsDiv.innerHTML += `<div class="p-2 bg-gray-100 rounded mb-2">${doc.data().text}</div>`;
+          const data = doc.data();
+          const avatar = data.userPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.userName || 'U')}&background=random`;
+          const time = data.createdAt ? timeAgo(data.createdAt) : "Just now";
+
+          postsDiv.innerHTML += `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition duration-200">
+              <div class="flex items-start space-x-3">
+                <img src="${avatar}" class="w-10 h-10 rounded-full object-cover" alt="Avatar">
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <h3 class="font-semibold text-gray-900 text-sm">${data.userName}</h3>
+                    <span class="text-xs text-gray-400">${time}</span>
+                  </div>
+                  <p class="text-gray-700 mt-1">${data.text}</p>
+                </div>
+              </div>
+            </div>
+          `;
         });
       });
     }
@@ -115,51 +265,116 @@
     fileInput.onchange = async () => {
       const file = fileInput.files[0];
       if(!file) return;
-      const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      await setDoc(doc(db, "users", auth.currentUser.uid), {photoURL: url}, {merge:true});
-      alert("Profile Picture Uploaded!");
+      
+      showToast("Uploading image...", "success");
+      try {
+        const storageRef = ref(storage, `profilePics/${auth.currentUser.uid}`);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        await setDoc(doc(db, "users", auth.currentUser.uid), { photoURL: url }, { merge: true });
+        
+        // Update UI immediately
+        userAvatarHeader.src = url;
+        showToast("Profile Picture Updated!");
+      } catch (error) {
+        showToast(error.message, "error");
+      }
     };
+    
+    // Trigger file input when clicking avatar
+    userAvatarHeader.onclick = () => fileInput.click();
 
   </script>
 </head>
-<body class="bg-gray-100 p-4 font-sans">
+<body class="bg-gray-50 font-sans text-gray-800">
 
-  <!-- 🔐 Login/Register -->
-  <div id="loginSection" class="max-w-md mx-auto bg-white p-6 rounded shadow mt-8">
-    <h1 class="text-2xl font-bold mb-4">Login / Register</h1>
-    <input id="name" type="text" placeholder="Name (for register)" class="border p-2 rounded w-full mb-2">
-    <input id="email" type="email" placeholder="Email" class="border p-2 rounded w-full mb-2">
-    <input id="password" type="password" placeholder="Password" class="border p-2 rounded w-full mb-4">
-    <div class="flex gap-2">
-      <button id="registerBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Register</button>
-      <button id="loginBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Login</button>
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col items-end"></div>
+
+  <!-- 🔐 Login/Register Section -->
+  <div id="loginSection" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-500 to-purple-600">
+    <div class="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl transform transition-all">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Khaji Social</h1>
+        <p class="text-gray-400 mt-2">Connect with the world</p>
+      </div>
+
+      <div class="space-y-4">
+        <input id="name" type="text" placeholder="Full Name (for registration)" 
+          class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition">
+        
+        <input id="email" type="email" placeholder="Email Address" 
+          class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition">
+        
+        <input id="password" type="password" placeholder="Password" 
+          class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition">
+        
+        <button id="loginBtn" class="bg-indigo-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-indigo-700 transition duration-200 flex items-center justify-center w-full">
+          Sign In
+        </button>
+        
+        <div class="relative flex py-2 items-center">
+          <div class="flex-grow border-t border-gray-200"></div>
+            <span class="flex-shrink mx-4 text-sm text-gray-400">OR</span>
+          <div class="flex-grow border-t border-gray-200"></div>
+        </div>
+
+        <button id="registerBtn" class="bg-indigo-100 text-indigo-700 px-4 py-3 rounded-lg font-medium hover:bg-indigo-200 transition duration-200 flex items-center justify-center w-full">
+          Create New Account
+        </button>
+      </div>
     </div>
   </div>
 
   <!-- 🌐 App Section -->
-  <div id="appSection" class="hidden max-w-3xl mx-auto mt-8">
+  <div id="appSection" class="hidden min-h-screen bg-gray-50">
+    
+    <!-- Top Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-40">
+      <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-indigo-600 flex items-center">
+          <svg class="w-6 h-6 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"></path></svg>
+          Khaji
+        </h1>
+        <div class="flex items-center space-x-3">
+          <span id="userNameHeader" class="text-sm font-medium text-gray-600 hidden sm:block">User</span>
+          <div class="relative">
+            <img id="userAvatarHeader" src="https://ui-avatars.com/api/?name=User" class="w-9 h-9 rounded-full cursor-pointer border-2 border-indigo-100 hover:border-indigo-400 transition object-cover" alt="Profile">
+            <input id="profilePic" type="file" class="hidden" accept="image/*">
+          </div>
+          <button id="logoutBtn" class="bg-gray-100 text-gray-600 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition">
+            Logout
+          </button>
+        </div>
+      </div>
+    </nav>
 
-    <div class="flex justify-between mb-4">
-      <h2 class="text-xl font-bold">Welcome!</h2>
-      <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
-    </div>
+    <!-- Main Content -->
+    <main class="max-w-3xl mx-auto py-6 px-4">
+      
+      <!-- Composer Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div class="flex space-x-3">
+          <img id="composerAvatar" src="https://ui-avatars.com/api/?name=U" class="w-10 h-10 rounded-full hidden sm:block object-cover">
+          <div class="flex-1">
+            <textarea id="postInput" rows="3" placeholder="What's on your mind?" 
+              class="w-full bg-gray-50 rounded-lg p-3 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none text-gray-700 placeholder-gray-400"></textarea>
+            <div class="flex justify-between items-center mt-2">
+              <span class="text-xs text-gray-400">Click avatar to change photo</span>
+              <button id="postBtn" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-indigo-700 transition disabled:opacity-50">
+                Post
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <!-- Profile Pic -->
-    <div class="mb-4">
-      <input id="profilePic" type="file">
-    </div>
+      <!-- Posts Feed -->
+      <div id="posts" class="space-y-4">
+        <!-- Posts dynamically injected here -->
+      </div>
 
-    <!-- Post -->
-    <div class="mb-4">
-      <textarea id="postInput" placeholder="Write something..." class="border p-2 rounded w-full mb-2"></textarea>
-      <button id="postBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600">Post</button>
-    </div>
-
-    <!-- Posts Feed -->
-    <div id="posts" class="space-y-2"></div>
-
+    </main>
   </div>
 
 </body>
