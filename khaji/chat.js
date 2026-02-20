@@ -1,10 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { 
-  getAuth, 
-  onAuthStateChanged, 
-  signOut 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
+import { getAuth, onAuthStateChanged, signOut }
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { 
   getFirestore, 
   collection, 
@@ -13,20 +9,19 @@ import {
   orderBy, 
   addDoc, 
   onSnapshot,
-  serverTimestamp
+  serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// 🔥 Your Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
   authDomain: "khaji-23a99.firebaseapp.com",
   projectId: "khaji-23a99",
   storageBucket: "khaji-23a99.firebasestorage.app",
   messagingSenderId: "84794766200",
-  appId: "1:84794766200:web:6f67917ca967334675ce8d"
+  appId: "1:84794766200:web:207a50412961d45275ce8d",
+  measurementId: "G-2RE1L7HQTZ"
 };
 
-// Initialize
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -36,8 +31,7 @@ let currentChatUser = null;
 let unsubscribeMessages = null;
 let allUsers = [];
 
-// 🔐 Auth Check
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
   } else {
@@ -46,7 +40,6 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// 👥 Load All Users
 async function loadUsers() {
   const snapshot = await getDocs(collection(db, "users"));
   allUsers = [];
@@ -63,7 +56,6 @@ async function loadUsers() {
   renderUsers(allUsers);
 }
 
-// 🎨 Render Users
 function renderUsers(users) {
   const list = document.getElementById("user-list");
   list.innerHTML = "";
@@ -71,36 +63,24 @@ function renderUsers(users) {
   users.forEach(user => {
     const div = document.createElement("div");
     div.className = "user-item";
-    div.innerHTML = `
-      <div class="user-avatar">${user.username.charAt(0).toUpperCase()}</div>
-      <div>${user.username}</div>
-    `;
-
-    div.onclick = () => startChat(user, div);
+    div.innerHTML = `<div>${user.username}</div>`;
+    div.onclick = () => startChat(user);
     list.appendChild(div);
   });
 }
 
-// 🔍 Search
-window.searchUsers = function() {
+window.searchUsers = function () {
   const search = document.getElementById("search-input").value.toLowerCase();
-
   const filtered = allUsers.filter(user =>
     user.username.toLowerCase().includes(search) ||
     user.email.toLowerCase().includes(search)
   );
-
   renderUsers(filtered);
 };
 
-// 💬 Start Chat
-function startChat(user, element) {
+function startChat(user) {
   currentChatUser = user;
-
-  document.querySelectorAll(".user-item").forEach(el => el.classList.remove("active"));
-  element.classList.add("active");
-
-  document.getElementById("chat-header").innerHTML = `<h3>${user.username}</h3>`;
+  document.getElementById("chat-header").innerText = user.username;
 
   const chatId = [currentUser.uid, user.id].sort().join("_");
   const messagesRef = collection(db, "chats", chatId, "messages");
@@ -115,11 +95,7 @@ function startChat(user, element) {
     snapshot.forEach(doc => {
       const msg = doc.data();
       const div = document.createElement("div");
-      div.className = `message-row ${
-        msg.senderId === currentUser.uid ? "sent" : "received"
-      }`;
-
-      div.innerHTML = `<div class="message-bubble">${msg.text}</div>`;
+      div.innerText = msg.text;
       container.appendChild(div);
     });
 
@@ -127,8 +103,7 @@ function startChat(user, element) {
   });
 }
 
-// ✉ Send Message
-window.sendMessage = async function() {
+window.sendMessage = async function () {
   const input = document.getElementById("message-input");
   const text = input.value.trim();
 
@@ -146,14 +121,10 @@ window.sendMessage = async function() {
   input.value = "";
 };
 
-// ⌨ Enter key
-window.handleEnter = function(e) {
-  if (e.key === "Enter") {
-    sendMessage();
-  }
+window.handleEnter = function (e) {
+  if (e.key === "Enter") sendMessage();
 };
 
-// 🚪 Logout
-window.logout = function() {
+window.logout = function () {
   signOut(auth);
 };
