@@ -1,24 +1,284 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Khaji Chat</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Khaji Chat - Authentication</title>
+  
+  <!-- Google Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <!-- Custom CSS -->
   <link rel="stylesheet" href="style.css">
+  
+  <style>
+    /* Additional styles for auth page */
+    .auth-page {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .auth-container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      animation: slideUp 0.5s ease;
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .logo-area {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .logo-area h1 {
+      font-size: 32px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    
+    .logo-area p {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .tab-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 25px;
+      background: #f0f0f0;
+      padding: 5px;
+      border-radius: 12px;
+    }
+    
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: #666;
+    }
+    
+    .tab-btn.active {
+      background: white;
+      color: #667eea;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .input-wrapper {
+      position: relative;
+    }
+    
+    .input-wrapper .icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #999;
+    }
+    
+    .input-wrapper input {
+      width: 100%;
+      padding: 14px 40px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      font-size: 15px;
+      transition: all 0.3s ease;
+      background: white;
+    }
+    
+    .input-wrapper input:focus {
+      border-color: #667eea;
+      outline: none;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+    }
+    
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #999;
+    }
+    
+    .main-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .main-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    .main-btn.loading {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    
+    .main-btn.loading::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border: 2px solid white;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    
+    @keyframes spin {
+      to { transform: translateY(-50%) rotate(360deg); }
+    }
+    
+    .message-area {
+      margin: 15px 0;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .message-area.show {
+      display: block;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .error-msg {
+      background: #fee;
+      color: #c00;
+      border-left: 4px solid #c00;
+    }
+    
+    .success-msg {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border-left: 4px solid #2e7d32;
+    }
+    
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
-<body class="auth-body">
+<body class="auth-page">
 
-<div class="auth-card">
-  <h2>Khaji Chat</h2>
+<div class="auth-container">
+  <div class="logo-area">
+    <h1>✨ Khaji Chat</h1>
+    <p>Connect with friends through text and video</p>
+  </div>
 
-  <input type="text" id="username" placeholder="Username (for register)">
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
+  <!-- Tab Switcher -->
+  <div class="tab-container">
+    <button id="login-tab" class="tab-btn active" onclick="switchTab('login')">Login</button>
+    <button id="register-tab" class="tab-btn" onclick="switchTab('register')">Register</button>
+  </div>
 
-  <button onclick="register()">Register</button>
-  <button onclick="login()">Login</button>
+  <!-- System Messages -->
+  <div id="message-area" class="message-area"></div>
 
-  <p id="auth-error"></p>
+  <form id="auth-form" onsubmit="return false;">
+    
+    <!-- Username Field (Only for Register) -->
+    <div id="username-group" class="form-group hidden">
+      <label for="username">Username</label>
+      <div class="input-wrapper">
+        <span class="material-icons icon">person_outline</span>
+        <input type="text" id="username" placeholder="Choose a cool username">
+      </div>
+    </div>
+
+    <!-- Email Field -->
+    <div class="form-group">
+      <label for="email">Email Address</label>
+      <div class="input-wrapper">
+        <span class="material-icons icon">mail_outline</span>
+        <input type="email" id="email" placeholder="Enter your email" required>
+      </div>
+    </div>
+
+    <!-- Password Field -->
+    <div class="form-group">
+      <label for="password">Password</label>
+      <div class="input-wrapper">
+        <span class="material-icons icon">lock_outline</span>
+        <input type="password" id="password" placeholder="Enter your password" required>
+        <span class="material-icons toggle-password" onclick="togglePassword()">visibility_off</span>
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <button type="submit" id="main-btn" class="main-btn">
+      <span class="btn-text">Login</span>
+    </button>
+  </form>
 </div>
 
+<!-- Custom JS -->
 <script type="module" src="script.js"></script>
+
 </body>
 </html>
