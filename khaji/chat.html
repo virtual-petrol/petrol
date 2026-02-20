@@ -1,32 +1,602 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Khaji Chat</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Khaji Chat - Dashboard</title>
+  
+  <!-- Styles -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  
+  <!-- PeerJS for Video Calls -->
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  
+  <style>
+    /* Additional chat styles */
+    .dashboard-body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .dashboard-container {
+      display: flex;
+      height: 100%;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      gap: 20px;
+    }
+    
+    /* Glassmorphism Sidebar */
+    .sidebar {
+      width: 320px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      animation: slideInLeft 0.5s ease;
+    }
+    
+    @keyframes slideInLeft {
+      from {
+        opacity: 0;
+        transform: translateX(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
+    .sidebar-header {
+      padding: 25px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .icon-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      transition: all 0.3s ease;
+    }
+    
+    .icon-btn:hover {
+      background: rgba(0,0,0,0.05);
+    }
+    
+    .search-box {
+      padding: 20px;
+    }
+    
+    .search-box input {
+      width: 100%;
+      padding: 14px 20px 14px 45px;
+      border: 2px solid #e0e0e0;
+      border-radius: 30px;
+      outline: none;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      background: white url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>') no-repeat 15px center;
+    }
+    
+    .search-box input:focus {
+      border-color: #667eea;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+    }
+    
+    .user-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    
+    .user-item {
+      padding: 15px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      cursor: pointer;
+      border-radius: 16px;
+      margin: 5px 0;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    .user-item:hover {
+      background: rgba(102, 126, 234, 0.1);
+      transform: translateX(5px);
+    }
+    
+    .user-item.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .user-avatar {
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 18px;
+      position: relative;
+    }
+    
+    .online-indicator {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      width: 12px;
+      height: 12px;
+      background: #4caf50;
+      border-radius: 50%;
+      border: 2px solid white;
+    }
+    
+    .user-info {
+      flex: 1;
+    }
+    
+    .user-name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .last-message {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    
+    /* Chat Area */
+    .chat-area {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      animation: slideInRight 0.5s ease;
+    }
+    
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
+    .chat-header {
+      padding: 25px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    .chat-header-info h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .chat-header-info p {
+      margin: 5px 0 0;
+      font-size: 13px;
+      color: #666;
+    }
+    
+    .messages-container {
+      flex: 1;
+      padding: 25px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      background: #f8fafc;
+    }
+    
+    .message-row {
+      display: flex;
+      animation: fadeInUp 0.3s ease;
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .message-row.sent {
+      justify-content: flex-end;
+    }
+    
+    .message-row.received {
+      justify-content: flex-start;
+    }
+    
+    .message-bubble {
+      padding: 14px 20px;
+      border-radius: 20px;
+      max-width: 60%;
+      font-size: 14px;
+      line-height: 1.5;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    
+    .sent .message-bubble {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-bottom-right-radius: 5px;
+    }
+    
+    .received .message-bubble {
+      background: white;
+      border-bottom-left-radius: 5px;
+    }
+    
+    .message-time {
+      font-size: 10px;
+      margin-top: 5px;
+      opacity: 0.7;
+      text-align: right;
+    }
+    
+    .input-area {
+      padding: 20px;
+      display: flex;
+      gap: 10px;
+      background: white;
+      border-top: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    .input-area input {
+      flex: 1;
+      padding: 14px 20px;
+      border: 2px solid #e0e0e0;
+      border-radius: 30px;
+      outline: none;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+    
+    .input-area input:focus {
+      border-color: #667eea;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+    }
+    
+    .send-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      color: white;
+      padding: 14px 25px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .send-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .video-btn {
+      background: #f0f0f0;
+      border: none;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .video-btn:hover {
+      background: #e0e0e0;
+    }
+    
+    .video-btn.active {
+      background: #f44336;
+      color: white;
+    }
+    
+    /* Video Grid */
+    .video-grid {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      z-index: 1000;
+      padding: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .video-grid video {
+      width: 45%;
+      max-height: 45%;
+      border-radius: 16px;
+      object-fit: cover;
+      border: 3px solid #667eea;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+    
+    .video-end {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      border-radius: 40px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      z-index: 1001;
+    }
+    
+    .video-end:hover {
+      background: #d32f2f;
+      transform: translateX(-50%) scale(1.05);
+    }
+    
+    .video-minimize {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      z-index: 1001;
+    }
+    
+    .video-minimize:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    /* Modal */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      backdrop-filter: blur(5px);
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .modal.hidden {
+      display: none;
+    }
+    
+    .modal-content {
+      background: white;
+      padding: 40px;
+      border-radius: 30px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      animation: scaleIn 0.3s ease;
+    }
+    
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    
+    .modal-content h3 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      color: #333;
+    }
+    
+    .modal-content p {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+    }
+    
+    .btn-answer {
+      background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-answer:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+    }
+    
+    .btn-reject {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-reject:hover {
+      background: #d32f2f;
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: #999;
+      padding: 50px;
+    }
+    
+    .empty-state .material-icons {
+      font-size: 60px;
+      margin-bottom: 20px;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
-<body>
+<body class="dashboard-body">
 
-<div class="chat-container">
+  <!-- Main Layout -->
+  <div class="dashboard-container">
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>✨ Khaji Chat</h2>
+        <button onclick="logout()" class="icon-btn" title="Logout">
+          <span class="material-icons">logout</span>
+        </button>
+      </div>
 
-  <div class="sidebar">
-    <h2>Khaji Chat</h2>
-    <input type="text" id="search-input" placeholder="Search..." oninput="searchUsers()">
-    <div id="user-list"></div>
-    <button onclick="logout()">Logout</button>
-  </div>
+      <!-- Search / Add User -->
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Search users by email..." onkeyup="searchUsers()">
+      </div>
 
-  <div class="chat-area">
-    <div id="chat-header">Select a user</div>
-    <div id="messages-container"></div>
+      <!-- User List -->
+      <div class="user-list" id="user-list">
+        <!-- Populated by JS -->
+        <div class="empty-state">
+          <span class="material-icons">people</span>
+          <p>Loading users...</p>
+        </div>
+      </div>
+    </div>
 
-    <div class="message-input-area">
-      <input type="text" id="message-input" placeholder="Type a message..." onkeydown="handleEnter(event)">
-      <button onclick="sendMessage()">Send</button>
+    <!-- Main Chat Area -->
+    <div class="chat-area">
+      
+      <!-- Chat Header -->
+      <div class="chat-header" id="chat-header">
+        <div class="chat-header-info">
+          <h3>Welcome to Khaji Chat</h3>
+          <p>Select a user to start chatting</p>
+        </div>
+      </div>
+
+      <!-- Video Grid (Hidden by default) -->
+      <div class="video-grid hidden" id="video-grid">
+        <video id="local-video" autoplay muted playsinline></video>
+        <video id="remote-video" autoplay playsinline></video>
+        <button class="video-minimize" onclick="toggleVideoMinimize()">
+          <span class="material-icons">close_fullscreen</span>
+        </button>
+        <button class="video-end" onclick="endCall()">End Call</button>
+      </div>
+
+      <!-- Messages Area -->
+      <div class="messages-container" id="messages-container">
+        <div class="empty-state">
+          <span class="material-icons">chat_bubble_outline</span>
+          <p>Select a user to start messaging</p>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <button class="video-btn" onclick="startVideoCall()" id="video-btn" title="Start Video Call">
+          <span class="material-icons">videocam</span>
+        </button>
+        <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleEnter(event)" disabled>
+        <button class="send-btn" onclick="sendMessage()" disabled>Send</button>
+      </div>
+
     </div>
   </div>
 
-</div>
+  <!-- Incoming Call Modal -->
+  <div id="call-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>📞 Incoming Video Call</h3>
+      <p id="caller-name">Someone is calling...</p>
+      <div class="modal-actions">
+        <button onclick="answerCall()" class="btn-answer">Answer</button>
+        <button onclick="rejectCall()" class="btn-reject">Reject</button>
+      </div>
+    </div>
+  </div>
 
-<script type="module" src="chat.js"></script>
+  <script type="module" src="chat.js"></script>
 </body>
 </html>
