@@ -1,15 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Chat Room</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f0f2f5; }
-        h1 { color: #333; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Khaji Chat - Dashboard</title>
+  
+  <!-- Styles -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- PeerJS for Video Calls (Simplifies WebRTC) -->
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 </head>
-<body>
-    <h1>Welcome to the Chat!</h1>
-    <p>You are logged in.</p>
+<body class="dashboard-body">
+
+  <!-- Main Layout -->
+  <div class="dashboard-container">
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>Khaji Chat</h2>
+        <button onclick="logout()" class="icon-btn" title="Logout">
+          <span class="material-icons">logout</span>
+        </button>
+      </div>
+
+      <!-- Search / Add User -->
+      <div class="search-box">
+        <span class="material-icons">search</span>
+        <input type="text" id="search-input" placeholder="Find user by email..." onkeyup="searchUsers()">
+      </div>
+
+      <!-- User List -->
+      <div class="user-list" id="user-list">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="chat-area">
+      
+      <!-- Chat Header -->
+      <div class="chat-header" id="chat-header">
+        <p>Select a user to start chatting</p>
+      </div>
+
+      <!-- Video Grid (Hidden by default) -->
+      <div class="video-grid hidden" id="video-grid">
+        <video id="local-video" autoplay muted playsinline></video>
+        <video id="remote-video" autoplay playsinline></video>
+      </div>
+
+      <!-- Messages Area -->
+      <div class="messages-container" id="messages-container">
+        <div class="empty-state">
+          <span class="material-icons">chat_bubble_outline</span>
+          <p>Your messages will appear here</p>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+        <button class="icon-btn" onclick="startVideoCall()" id="video-btn" title="Video Call">
+          <span class="material-icons">videocam</span>
+        </button>
+        <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleEnter(event)">
+        <button class="send-btn" onclick="sendMessage()">Send</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Incoming Call Modal -->
+  <div id="call-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Incoming Video Call</h3>
+      <p id="caller-name">Someone is calling...</p>
+      <div class="modal-actions">
+        <button onclick="answerCall()" class="btn-answer">Answer</button>
+        <button onclick="rejectCall()" class="btn-reject">Reject</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="chat.js"></script>
 </body>
 </html>
