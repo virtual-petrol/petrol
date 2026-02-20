@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConnectChat - Real-time Chat & Video Calls</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 95%;
+            margin: 20px auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        /* Login/Register Section */
+        .auth-section {
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+
+        .auth-section h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .auth-section p {
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .auth-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50px;
+            padding: 5px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 50px;
+            transition: all 0.3s;
+        }
+
+        .auth-tab.active {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 25px;
+            background: white;
+            color: #667eea;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s;
+            margin-top: 10px;
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Main App Section */
+        .app-section {
+            display: none;
+            height: 600px;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #f5f5f5;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-profile {
+            padding: 20px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .user-info h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .user-info p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .search-box {
+            padding: 15px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        .users-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .user-item {
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: background 0.3s;
+            border-bottom: 1px solid #eee;
+        }
+
+        .user-item:hover {
+            background: #e8e8e8;
+        }
+
+        .user-item.active {
+            background: #e3e3e3;
+        }
+
+        .user-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4caf50;
+            margin-left: auto;
+        }
+
+        .user-status.offline {
+            background: #9e9e9e;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .call-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .call-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .video-call-btn {
+            background: #4caf50;
+            color: white;
+        }
+
+        .audio-call-btn {
+            background: #2196f3;
+            color: white;
+        }
+
+        .call-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+
+        .message.sent {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 60%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .message.sent .message-content {
+            background: #667eea;
+            color: white;
+        }
+
+        .message-time {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        .chat-input button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .chat-input button:hover {
+            background: #5a67d8;
+        }
+
+        /* Video Call Modal */
+        .video-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+        }
+
+        .video-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 20px;
+        }
+
+        .video-wrapper {
+            position: relative;
+            background: #1a1a1a;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .video-wrapper video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .call-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            background: rgba(255,255,255,0.1);
+            padding: 15px 30px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .control-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .control-btn.end-call {
+            background: #f44336;
+        }
+
+        .control-btn.end-call:hover {
+            background: #d32f2f;
+        }
+
+        .incoming-call-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 1001;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .incoming-call-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .accept-btn {
+            padding: 10px 30px;
+            border: none;
+            border-radius: 25px;
+            background: #4caf50;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .reject-btn {
+            padding: 10px 30px;
+            border: none;
+            border-radius: 25px;
+            background: #f44336;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: #333;
+            color: white;
+            border-radius: 10px;
+            animation: slideIn 0.3s;
+            z-index: 1002;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login/Register Section -->
+        <div class="auth-section" id="authSection">
+            <h1>ConnectChat</h1>
+            <p>Connect with friends through chat and video calls</p>
+            
+            <div class="auth-form">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                    <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+                </div>
+                
+                <div id="loginForm">
+                    <div class="input-group">
+                        <input type="text" id="loginUsername" placeholder="Username" required>
+                    </div>
+                    <div class="input-group">
+                        <input type="password" id="loginPassword" placeholder="Password" required>
+                    </div>
+                    <button class="auth-btn" onclick="login()">Login</button>
+                </div>
+                
+                <div id="registerForm" style="display: none;">
+                    <div class="input-group">
+                        <input type="text" id="regName" placeholder="Full Name" required>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" id="regUsername" placeholder="Username" required>
+                    </div>
+                    <div class="input-group">
+                        <input type="email" id="regEmail" placeholder="Email" required>
+                    </div>
+                    <div class="input-group">
+                        <input type="password" id="regPassword" placeholder="Password" required>
+                    </div>
+                    <button class="auth-btn" onclick="register()">Register</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App Section -->
+        <div class="app-section" id="appSection">
+            <div style="display: flex; height: 100%;">
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div class="user-profile">
+                        <div class="avatar" id="userAvatar">JD</div>
+                        <div class="user-info">
+                            <h3 id="userName">John Doe</h3>
+                            <p id="userStatus">Online</p>
+                        </div>
+                    </div>
+                    
+                    <div class="search-box">
+                        <input type="text" placeholder="Search users..." onkeyup="searchUsers(this.value)">
+                    </div>
+                    
+                    <div class="users-list" id="usersList">
+                        <!-- Users will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Main Chat Area -->
+                <div class="main-content">
+                    <div class="chat-header">
+                        <div class="chat-user-info">
+                            <div class="avatar" id="chatUserAvatar">JS</div>
+                            <div>
+                                <h3 id="chatUserName">Select a user</h3>
+                                <p id="chatUserStatus">...</p>
+                            </div>
+                        </div>
+                        <div class="call-buttons">
+                            <button class="call-btn video-call-btn" onclick="startVideoCall()">📹 Video Call</button>
+                            <button class="call-btn audio-call-btn" onclick="startAudioCall()">🎤 Audio Call</button>
+                        </div>
+                    </div>
+
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- Messages will appear here -->
+                        <div style="text-align: center; color: #999; margin-top: 50px;">
+                            Select a user to start chatting
+                        </div>
+                    </div>
+
+                    <div class="chat-input">
+                        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+                        <button onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Call Modal -->
+    <div class="video-modal" id="videoModal">
+        <div class="video-container">
+            <div class="video-grid" id="videoGrid">
+                <div class="video-wrapper" id="localVideoWrapper">
+                    <video id="localVideo" autoplay muted playsinline></video>
+                    <div class="video-label">You</div>
+                </div>
+                <div class="video-wrapper" id="remoteVideoWrapper">
+                    <video id="remoteVideo" autoplay playsinline></video>
+                    <div class="video-label" id="remoteVideoLabel">Remote User</div>
+                </div>
+            </div>
+            <div class="call-controls">
+                <button class="control-btn" onclick="toggleMute()" id="muteBtn">🎤</button>
+                <button class="control-btn" onclick="toggleVideo()" id="videoBtn">📹</button>
+                <button class="control-btn end-call" onclick="endCall()">📞</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incoming Call Modal -->
+    <div class="incoming-call-modal" id="incomingCallModal">
+        <h2 id="incomingCaller">Incoming Call...</h2>
+        <p id="callType">Video Call</p>
+        <div class="incoming-call-buttons">
+            <button class="accept-btn" onclick="acceptCall()">Accept</button>
+            <button class="reject-btn" onclick="rejectCall()">Reject</button>
+        </div>
+    </div>
+
+    <script>
+        // Mock data and state
+        let currentUser = null;
+        let selectedUser = null;
+        let users = [];
+        let messages = {};
+        let notifications = [];
+        
+        // WebRTC variables
+        let localStream = null;
+        let remoteStream = null;
+        let peerConnection = null;
+        let isCallActive = false;
+        let callType = null;
+        let incomingCall = null;
+        
+        // Configuration
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' }
+            ]
+        };
+
+        // Initialize the app
+        function init() {
+            // Load mock users
+            loadMockUsers();
+            
+            // Check if user is logged in (mock)
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showApp();
+            }
+        }
+
+        // Load mock users
+        function loadMockUsers() {
+            users = [
+                { id: 1, name: 'Alice Smith', username: 'alice', email: 'alice@example.com', online: true, avatar: 'AS' },
+                { id: 2, name: 'Bob Johnson', username: 'bob', email: 'bob@example.com', online: true, avatar: 'BJ' },
+                { id: 3, name: 'Charlie Brown', username: 'charlie', email: 'charlie@example.com', online: false, avatar: 'CB' },
+                { id: 4, name: 'Diana Prince', username: 'diana', email: 'diana@example.com', online: true, avatar: 'DP' }
+            ];
+            
+            // Initialize messages for each user
+            users.forEach(user => {
+                messages[user.id] = [];
+            });
+            
+            // Add some mock messages
+            messages[1] = [
+                { id: 1, sender: 1, text: 'Hey, how are you?', time: '10:30 AM', sent: false },
+                { id: 2, sender: 'me', text: 'I\'m good, thanks! How about you?', time: '10:31 AM', sent: true }
+            ];
+            
+            updateUsersList();
+        }
+
+        // Switch between login and register tabs
+        function switchAuthTab(tab) {
+            const tabs = document.querySelectorAll('.auth-tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'login') {
+                tabs[0].classList.add('active');
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('registerForm').style.display = 'none';
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'block';
+            }
+        }
+
+        // Login function
+        function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+            
+            // Mock login - check if user exists
+            const user = users.find(u => u.username === username);
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                showApp();
+                showNotification('Login successful!', 'success');
+            } else {
+                showNotification('Invalid username or password', 'error');
+            }
+        }
+
+        // Register function
+        function register() {
+            const name = document.getElementById('regName').value;
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            
+            if (!name || !username || !email || !password) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+            
+            // Check if username exists
+            if (users.find(u => u.username === username)) {
+                showNotification('Username already exists', 'error');
+                return;
+            }
+            
+            // Create new user
+            const newUser = {
+                id: users.length + 1,
+                name: name,
+                username: username,
+                email: email,
+                online: true,
+                avatar: name.split(' ').map(n => n[0]).join('').substring(0, 2)
+            };
+            
+            users.push(newUser);
+            messages[newUser.id] = [];
+            
+            currentUser = newUser;
+            localStorage.setItem('currentUser', JSON.stringify(newUser));
+            
+            showApp();
+            showNotification('Registration successful!', 'success');
+        }
+
+        // Show main app
+        function showApp() {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('appSection').style.display = 'block';
+            
+            // Update user profile
+            document.getElementById('userAvatar').textContent = currentUser.avatar;
+            document.getElementById('userName').textContent = currentUser.name;
+            
+            updateUsersList();
+        }
+
+        // Update users list
+        function updateUsersList() {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '';
+            
+            users.filter(u => u.id !== currentUser.id).forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = `user-item ${selectedUser && selectedUser.id === user.id ? 'active' : ''}`;
+                userItem.onclick = () => selectUser(user);
+                
+                userItem.innerHTML = `
+                    <div class="avatar">${user.avatar}</div>
+                    <div>
+                        <h4>${user.name}</h4>
+                        <p style="font-size: 12px; color: #666;">@${user.username}</p>
+                    </div>
+                    <div class="user-status ${user.online ? '' : 'offline'}"></div>
+                `;
+                
+                usersList.appendChild(userItem);
+            });
+        }
+
+        // Search users
+        function searchUsers(query) {
+            const filteredUsers = users.filter(u => 
+                u.id !== currentUser.id && 
+                (u.name.toLowerCase().includes(query.toLowerCase()) || 
+                 u.username.toLowerCase().includes(query.toLowerCase()))
+            );
+            
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '';
+            
+            filteredUsers.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = `user-item ${selectedUser && selectedUser.id === user.id ? 'active' : ''}`;
+                userItem.onclick = () => selectUser(user);
+                
+                userItem.innerHTML = `
+                    <div class="avatar">${user.avatar}</div>
+                    <div>
+                        <h4>${user.name}</h4>
+                        <p style="font-size: 12px; color: #666;">@${user.username}</p>
+                    </div>
+                    <div class="user-status ${user.online ? '' : 'offline'}"></div>
+                `;
+                
+                usersList.appendChild(userItem);
+            });
+        }
+
+        // Select user to chat with
+        function selectUser(user) {
+            selectedUser = user;
+            
+            document.getElementById('chatUserAvatar').textContent = user.avatar;
+            document.getElementById('chatUserName').textContent = user.name;
+            document.getElementById('chatUserStatus').textContent = user.online ? 'Online' : 'Offline';
+            
+            loadMessages(user.id);
+        }
+
+        // Load messages for selected user
+        function loadMessages(userId) {
+            const chatMessages = document.getElementById('chatMessages');
+            const userMessages = messages[userId] || [];
+            
+            if (userMessages.length === 0) {
+                chatMessages.innerHTML = '<div style="text-align: center; color: #999; margin-top: 50px;">No messages yet. Start a conversation!</div>';
+                return;
+            }
+            
+            chatMessages.innerHTML = '';
+            userMessages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${msg.sent === 'me' || msg.sent === true ? 'sent' : ''}`;
+                
+                messageDiv.innerHTML = `
+                    <div class="message-content">
+                        ${msg.text}
+                        <div class="message-time">${msg.time}</div>
+                    </div>
+                `;
+                
+                chatMessages.appendChild(messageDiv);
+            });
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Send message
+        function sendMessage() {
+            if (!selectedUser) {
+                showNotification('Please select a user to chat with', 'warning');
+                return;
+            }
+            
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text) return;
+            
+            const now = new Date();
+            const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            // Add message to current user's chat
+            const message = {
+                id: Date.now(),
+                sender: 'me',
+                text: text,
+                time: timeString,
+                sent: true
+            };
+            
+            if (!messages[selectedUser.id]) {
+                messages[selectedUser.id] = [];
+            }
+            
+            messages[selectedUser.id].push(message);
+            
+            // Clear input
+            input.value = '';
+            
+            // Reload messages
+            loadMessages(selectedUser.id);
+            
+            // Simulate reply after 2 seconds (for demo)
+            setTimeout(() => {
+                if (selectedUser) {
+                    const reply = {
+                        id: Date.now(),
+                        sender: selectedUser.id,
+                        text: 'Thanks for your message! This is an automated reply.',
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        sent: false
+                    };
+                    
+                    messages[selectedUser.id].push(reply);
+                    loadMessages(selectedUser.id);
+                    showNotification(`New message from ${selectedUser.name}`);
+                }
+            }, 2000);
+        }
+
+        // Handle enter key press
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Video/Audio call functions
+        async function startVideoCall() {
+            if (!selectedUser) {
+                showNotification('Please select a user to call', 'warning');
+                return;
+            }
+            
+            callType = 'video';
+            await initializeCall();
+        }
+
+        async function startAudioCall() {
+            if (!selectedUser) {
+                showNotification('Please select a user to call', 'warning');
+                return;
+            }
+            
+            callType = 'audio';
+            await initializeCall();
+        }
+
+        async function initializeCall() {
+            try {
+                // Get user media
+                const constraints = {
+                    video: callType === 'video',
+                    audio: true
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                document.getElementById('localVideo').srcObject = localStream;
+                
+                // Show video modal
+                document.getElementById('videoModal').style.display = 'block';
+                
+                // Create peer connection
+                peerConnection = new RTCPeerConnection(configuration);
+                
+                // Add local stream to peer connection
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                // Handle remote stream
+                peerConnection.ontrack = (event) => {
+                    document.getElementById('remoteVideo').srcObject = event.streams[0];
+                };
+                
+                // Handle ICE candidates
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        // Send candidate to remote peer (mock)
+                        console.log('ICE candidate:', event.candidate);
+                    }
+                };
+                
+                // Create offer
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                // Mock: Simulate incoming call for demo
+                setTimeout(() => {
+                    showIncomingCall(selectedUser, callType);
+                }, 2000);
+                
+                isCallActive = true;
+                
+            } catch (error) {
+                console.error('Error initializing call:', error);
+                showNotification('Failed to initialize call', 'error');
+            }
+        }
+
+        function showIncomingCall(user, type) {
+            incomingCall = {
+                user: user,
+                type: type
+            };
+            
+            document.getElementById('incomingCaller').textContent = `${user.name} is calling...`;
+            document.getElementById('callType').textContent = type === 'video' ? '📹 Video Call' : '🎤 Audio Call';
+            document.getElementById('incomingCallModal').style.display = 'block';
+        }
+
+        function acceptCall() {
+            document.getElementById('incomingCallModal').style.display = 'none';
+            
+            // Mock: Accept call
+            document.getElementById('remoteVideoLabel').textContent = incomingCall.user.name;
+            
+            showNotification(`Call with ${incomingCall.user.name} started`);
+        }
+
+        function rejectCall() {
+            document.getElementById('incomingCallModal').style.display = 'none';
+            incomingCall = null;
+            showNotification('Call rejected');
+        }
+
+        function endCall() {
+            // Close peer connection
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            // Stop local stream
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            // Hide video modal
+            document.getElementById('videoModal').style.display = 'none';
+            
+            isCallActive = false;
+            showNotification('Call ended');
+        }
+
+        function toggleMute() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    document.getElementById('muteBtn').style.opacity = audioTrack.enabled ? '1' : '0.5';
+                }
+            }
+        }
+
+        function toggleVideo() {
+            if (localStream && callType === 'video') {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    document.getElementById('videoBtn').style.opacity = videoTrack.enabled ? '1' : '0.5';
+                }
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.style.background = type === 'error' ? '#f44336' : 
+                                          type === 'success' ? '#4caf50' : 
+                                          type === 'warning' ? '#ff9800' : '#333';
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>
