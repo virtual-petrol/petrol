@@ -1,12 +1,11 @@
+// Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
   authDomain: "khaji-23a99.firebaseapp.com",
-  databaseURL: "https://khaji-23a99-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "khaji-23a99",
   storageBucket: "khaji-23a99.firebasestorage.app",
   messagingSenderId: "84794766200",
-  appId: "1:84794766200:web:207a50412961d45275ce8d",
-  measurementId: "G-2RE1L7HQTZ"
+  appId: "1:84794766200:web:207a50412961d45275ce8d"
 };
 
 // Initialize Firebase
@@ -14,42 +13,35 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// Global variables
 let currentUser = null;
 let currentChatUser = null;
 let currentChatUserData = null;
 let unsubscribeMessages = null;
 let unsubscribeUsers = null;
 
-// ================= AUTH CHECK =================
-auth.onAuthStateChanged(async user => {
+// ================= CHECK AUTH =================
+auth.onAuthStateChanged(async (user) => {
   if (!user) {
     window.location.href = "index.html";
-  } else {
-    currentUser = user;
-    console.log("✅ Logged in as:", user.email);
-    
-    try {
-      // Update user online status in users collection
-      await db.collection("users").doc(user.uid).update({
-        isOnline: true,
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    } catch (error) {
-      // First time user - create profile
-      console.log("Creating new user profile...");
-      await db.collection("users").doc(user.uid).set({
-        username: user.email.split('@')[0],
-        email: user.email,
-        isOnline: true,
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        status: "Hey there! I'm using Khaji Chat"
-      });
-    }
-    
-    // Load all users
-    loadAllUsers();
+    return;
   }
+  
+  currentUser = user;
+  console.log("✅ Logged in:", user.email);
+  
+  // Update online status
+  try {
+    await db.collection("users").doc(user.uid).update({
+      isOnline: true,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (error) {
+    console.log("First time user - profile exists");
+  }
+  
+  // Load all users
+  loadAllUsers();
 });
 
 // ================= LOAD ALL USERS =================
@@ -60,81 +52,58 @@ async function loadAllUsers() {
     userList.innerHTML = "";
     
     if (snapshot.empty) {
-      userList.innerHTML = "<p style='padding:20px; text-align:center;'>No users found. Register first!</p>";
+      userList.innerHTML = '<div class="no-user">No users found. Register first!</div>';
       return;
     }
     
+    let userCount = 0;
+    
     snapshot.forEach(doc => {
       if (doc.id !== currentUser?.uid) {
+        userCount++;
         const userData = doc.data();
-        createUserElement(doc.id, userData);
+        displayUser(doc.id, userData);
       }
     });
+    
+    if (userCount === 0) {
+      userList.innerHTML = '<div class="no-user">No other users found. Share this app with friends!</div>';
+    }
+    
   } catch (error) {
     console.error("Error loading users:", error);
-    document.getElementById("userList").innerHTML = "<p style='color:red;'>Error loading users</p>";
+    document.getElementById("userList").innerHTML = '<div class="no-user">Error loading users</div>';
   }
 }
 
-// ================= CREATE USER ELEMENT =================
-function createUserElement(userId, userData) {
+// ================= DISPLAY USER =================
+function displayUser(userId, userData) {
   const userList = document.getElementById("userList");
   
   const userDiv = document.createElement("div");
   userDiv.className = "user-item";
   userDiv.id = `user-${userId}`;
-  userDiv.style.cssText = `
-    padding: 12px 15px;
-    margin: 5px 10px;
-    background: ${userData.isOnline ? '#f0fdf4' : '#f9fafb'};
-    border-radius: 10px;
-    cursor: pointer;
-    border: 1px solid #e5e7eb;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    transition: all 0.2s;
-  `;
   
-  // Avatar
-  const avatar = document.createElement("div");
-  avatar.style.cssText = `
-    width: 45px;
-    height: 45px;
-    background: #6366f1;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 18px;
-  `;
-  avatar.textContent = userData.username ? userData.username.charAt(0).toUpperCase() : 'U';
+  const avatar = userData.username?.charAt(0).toUpperCase() || 'U';
+  const isOnline = userData.isOnline || false;
   
-  // Info
-  const info = document.createElement("div");
-  info.style.flex = "1";
-  info.innerHTML = `
-    <div style="font-weight:600; display:flex; align-items:center; gap:5px;">
-      ${userData.username || 'User'}
-      <span style="color: ${userData.isOnline ? '#22c55e' : '#94a3b8'}; font-size: 12px;">
-        ${userData.isOnline ? '● Online' : '○ Offline'}
-      </span>
+  userDiv.innerHTML = `
+    <div class="user-avatar">${avatar}</div>
+    <div class="user-info">
+      <div class="user-name">
+        ${userData.username || 'User'}
+        <span class="${isOnline ? 'online-dot' : 'offline-dot'}"></span>
+      </div>
+      <div class="user-email">${userData.email}</div>
     </div>
-    <div style="font-size:13px; color:#666;">${userData.email}</div>
-    ${userData.status ? `<div style="font-size:11px; color:#888;">${userData.status}</div>` : ''}
   `;
   
-  userDiv.appendChild(avatar);
-  userDiv.appendChild(info);
-  
-  userDiv.onclick = () => startChat(userId, userData);
+  userDiv.addEventListener('click', () => startChat(userId, userData));
   
   userList.appendChild(userDiv);
 }
 
-// ================= SEARCH USER =================
+// ================= SEARCH USERS =================
 document.getElementById("searchBtn").addEventListener("click", async () => {
   const email = document.getElementById("searchEmail").value.trim();
   
@@ -153,75 +122,100 @@ document.getElementById("searchBtn").addEventListener("click", async () => {
     userList.innerHTML = "";
     
     if (snapshot.empty) {
-      userList.innerHTML = "<p style='padding:20px;'>No user found</p>";
+      userList.innerHTML = '<div class="no-user">No users found</div>';
       return;
     }
     
     snapshot.forEach(doc => {
       if (doc.id !== currentUser.uid) {
-        createUserElement(doc.id, doc.data());
+        displayUser(doc.id, doc.data());
       }
     });
+    
   } catch (error) {
     console.error("Search error:", error);
   }
 });
 
 // ================= START CHAT =================
-function startChat(userId, userData) {
+async function startChat(userId, userData) {
   currentChatUser = userId;
   currentChatUserData = userData;
   
-  // Highlight selected user
+  // Update UI
   document.querySelectorAll('.user-item').forEach(el => {
-    el.style.background = '';
+    el.classList.remove('selected');
   });
-  document.getElementById(`user-${userId}`).style.background = '#e0e7ff';
+  document.getElementById(`user-${userId}`).classList.add('selected');
   
   // Update header
+  const avatar = userData.username?.charAt(0).toUpperCase() || 'U';
+  const isOnline = userData.isOnline ? '🟢 Online' : '⚪ Offline';
+  
   document.getElementById("chatHeader").innerHTML = `
-    <div style="display:flex; align-items:center; gap:10px;">
-      <div style="width:40px; height:40px; background:#6366f1; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-        ${userData.username ? userData.username.charAt(0).toUpperCase() : 'U'}
-      </div>
-      <div>
-        <div style="font-weight:600;">${userData.username || 'User'}</div>
-        <div style="font-size:12px; color:${userData.isOnline ? '#22c55e' : '#666'};">
-          ${userData.isOnline ? 'Online' : 'Offline'}
-        </div>
-      </div>
+    <div class="chat-header-avatar">${avatar}</div>
+    <div class="chat-header-info">
+      <h4>${userData.username || 'User'}</h4>
+      <p>${isOnline}</p>
     </div>
   `;
   
+  // Load messages
   loadMessages();
+  
+  // Mark messages as read
+  markMessagesAsRead(userId);
 }
 
-// ================= LOAD MESSAGES (from chats/{chatId}/messages) =================
+// ================= MARK MESSAGES AS READ =================
+async function markMessagesAsRead(otherUserId) {
+  const chatId = [currentUser.uid, otherUserId].sort().join("_");
+  
+  try {
+    const messagesSnapshot = await db.collection("chats")
+      .doc(chatId)
+      .collection("messages")
+      .where("receiverId", "==", currentUser.uid)
+      .where("status", "in", ["sent", "delivered"])
+      .get();
+    
+    const batch = db.batch();
+    messagesSnapshot.forEach(doc => {
+      batch.update(doc.ref, {
+        status: "read",
+        readAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    
+    await batch.commit();
+  } catch (error) {
+    console.log("Mark as read error:", error);
+  }
+}
+
+// ================= LOAD MESSAGES =================
 function loadMessages() {
   if (!currentChatUser) return;
   
   const chatId = [currentUser.uid, currentChatUser].sort().join("_");
   
+  // Stop old listener
   if (unsubscribeMessages) {
     unsubscribeMessages();
   }
   
-  // Create chat document if it doesn't exist
+  // Create chat document if not exists
   db.collection("chats").doc(chatId).get().then(doc => {
     if (!doc.exists) {
       db.collection("chats").doc(chatId).set({
         participants: [currentUser.uid, currentChatUser],
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
-        unreadCount: {
-          [currentUser.uid]: 0,
-          [currentChatUser]: 0
-        }
+        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
   });
   
-  // Listen to messages subcollection
+  // Listen to messages
   unsubscribeMessages = db.collection("chats")
     .doc(chatId)
     .collection("messages")
@@ -231,81 +225,57 @@ function loadMessages() {
       chatBox.innerHTML = "";
       
       if (snapshot.empty) {
-        chatBox.innerHTML = "<p style='text-align:center; color:#666; padding:20px;'>No messages yet. Say hi! 👋</p>";
+        chatBox.innerHTML = '<div class="no-user">No messages yet. Say hi! 👋</div>';
         return;
       }
       
       snapshot.forEach(doc => {
         const msg = doc.data();
         
-        // Mark as delivered if received
-        if (msg.receiverId === currentUser.uid && msg.status === 'sent') {
-          doc.ref.update({
-            status: 'delivered'
-          });
+        // Update message status
+        if (msg.receiverId === currentUser.uid && msg.status === "sent") {
+          doc.ref.update({ status: "delivered" });
         }
         
         const messageDiv = document.createElement("div");
-        messageDiv.style.cssText = `
-          display: flex;
-          margin: 15px 10px;
-          justify-content: ${msg.senderId === currentUser.uid ? 'flex-end' : 'flex-start'};
-        `;
+        messageDiv.className = `message ${msg.senderId === currentUser.uid ? 'sent' : 'received'}`;
         
         const bubble = document.createElement("div");
-        bubble.style.cssText = `
-          max-width: 70%;
-          padding: 12px 18px;
-          border-radius: 18px;
-          background: ${msg.senderId === currentUser.uid ? '#6366f1' : '#e5e7eb'};
-          color: ${msg.senderId === currentUser.uid ? 'white' : 'black'};
-          border-bottom-${msg.senderId === currentUser.uid ? 'right' : 'left'}-radius: 4px;
-          word-wrap: break-word;
-        `;
+        bubble.className = "message-bubble";
+        bubble.textContent = msg.text;
         
-        // Message text
-        bubble.innerHTML = msg.text;
+        // Add time
+        const timeSpan = document.createElement("div");
+        timeSpan.className = "message-time";
         
-        // Time and status
-        if (msg.createdAt) {
-          const timeSpan = document.createElement("span");
-          timeSpan.style.cssText = "font-size: 10px; margin-left: 8px; opacity: 0.7; display: inline-block;";
+        if (msg.createdAt?.toDate) {
+          const time = msg.createdAt.toDate().toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
           
-          let timeStr = '';
-          if (msg.createdAt.toDate) {
-            timeStr = msg.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-          } else {
-            timeStr = 'just now';
-          }
-          
-          // Add status indicators for sent messages
+          // Add status for sent messages
           if (msg.senderId === currentUser.uid) {
-            let statusIcon = '';
-            if (msg.status === 'sent') statusIcon = ' ✓';
-            else if (msg.status === 'delivered') statusIcon = ' ✓✓';
-            else if (msg.status === 'read') statusIcon = ' ✓✓';
-            timeSpan.textContent = `${timeStr}${statusIcon}`;
+            let status = '✓';
+            if (msg.status === 'delivered') status = '✓✓';
+            if (msg.status === 'read') status = '✓✓';
+            timeSpan.textContent = `${time} ${status}`;
           } else {
-            timeSpan.textContent = timeStr;
+            timeSpan.textContent = time;
           }
-          
-          bubble.appendChild(document.createElement("br"));
-          bubble.appendChild(timeSpan);
         }
         
+        bubble.appendChild(timeSpan);
         messageDiv.appendChild(bubble);
         chatBox.appendChild(messageDiv);
       });
       
       // Auto-scroll
       chatBox.scrollTop = chatBox.scrollHeight;
-    }, error => {
-      console.error("Message load error:", error);
-      document.getElementById("chatBox").innerHTML = "<p style='color:red;'>Error loading messages</p>";
     });
 }
 
-// ================= SEND MESSAGE (to chats/{chatId}/messages) =================
+// ================= SEND MESSAGE =================
 document.getElementById("sendBtn").addEventListener("click", sendMessage);
 document.getElementById("messageInput").addEventListener("keypress", (e) => {
   if (e.key === "Enter") sendMessage();
@@ -324,7 +294,7 @@ async function sendMessage() {
   const chatId = [currentUser.uid, currentChatUser].sort().join("_");
   
   try {
-    // Add message to messages subcollection
+    // Send message
     await db.collection("chats")
       .doc(chatId)
       .collection("messages")
@@ -333,16 +303,14 @@ async function sendMessage() {
         senderId: currentUser.uid,
         receiverId: currentChatUser,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        status: "sent",
-        type: "text"
+        status: "sent"
       });
     
-    // Update chat document with last message
-    await db.collection("chats").doc(chatId).update({
+    // Update last message
+    await db.collection("chats").doc(chatId).set({
       lastMessage: text,
-      lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
-      [`unreadCount.${currentChatUser}`]: firebase.firestore.FieldValue.increment(1)
-    });
+      lastMessageTime: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
     
     input.value = "";
     
@@ -366,5 +334,32 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
   }
   
   if (unsubscribeMessages) unsubscribeMessages();
+  if (unsubscribeUsers) unsubscribeUsers();
+  
   auth.signOut();
 });
+
+// ================= REAL-TIME USER UPDATES =================
+function setupUserListener() {
+  if (unsubscribeUsers) {
+    unsubscribeUsers();
+  }
+  
+  unsubscribeUsers = db.collection("users").onSnapshot(snapshot => {
+    // Update online status in UI
+    snapshot.forEach(doc => {
+      const userData = doc.data();
+      const userElement = document.getElementById(`user-${doc.id}`);
+      
+      if (userElement) {
+        const dot = userElement.querySelector('.online-dot, .offline-dot');
+        if (dot) {
+          dot.className = userData.isOnline ? 'online-dot' : 'offline-dot';
+        }
+      }
+    });
+  });
+}
+
+// Call this after auth
+setupUserListener();
