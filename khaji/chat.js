@@ -1,34 +1,92 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Chat</title>
-  <meta charset="UTF-8">
-</head>
-<body>
+const firebaseConfig = {
+  apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
+  authDomain: "khaji-23a99.firebaseapp.com",
+  databaseURL: "https://khaji-23a99-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "khaji-23a99",
+  storageBucket: "khaji-23a99.firebasestorage.app",
+  messagingSenderId: "84794766200",
+  appId: "1:84794766200:web:207a50412961d45275ce8d",
+  measurementId: "G-2RE1L7HQTZ"
+};
 
-<h2>Chat</h2>
+firebase.initializeApp(firebaseConfig);
 
-<input type="text" id="searchEmail" placeholder="Search by Email">
-<button id="searchBtn">Search</button>
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-<div id="userList"></div>
+let currentUser;
+let currentChatUser;
 
-<hr>
+auth.onAuthStateChanged(user => {
+  if (!user) {
+    window.location.href = "index.html";
+  } else {
+    currentUser = user;
+  }
+});
 
-<div id="chatBox" style="height:200px; overflow-y:auto; border:1px solid black;"></div>
+document.getElementById("searchBtn").addEventListener("click", async () => {
+  const email = document.getElementById("searchEmail").value.trim();
+  const snapshot = await db.collection("users")
+    .where("email", "==", email)
+    .get();
 
-<br>
-<input type="text" id="messageInput" placeholder="Type message">
-<button id="sendBtn">Send</button>
+  const userList = document.getElementById("userList");
+  userList.innerHTML = "";
 
-<br><br>
-<button id="logoutBtn">Logout</button>
+  snapshot.forEach(doc => {
+    if (doc.id !== currentUser.uid) {
+      const btn = document.createElement("button");
+      btn.innerText = doc.data().username;
+      btn.onclick = () => startChat(doc.id);
+      userList.appendChild(btn);
+    }
+  });
+});
 
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+function startChat(userId) {
+  currentChatUser = userId;
+  loadMessages();
+}
 
-<script src="chat.js"></script>
+function loadMessages() {
+  const chatId = [currentUser.uid, currentChatUser].sort().join("_");
 
-</body>
-</html>
+  db.collection("chats")
+    .doc(chatId)
+    .collection("messages")
+    .orderBy("createdAt")
+    .onSnapshot(snapshot => {
+      const chatBox = document.getElementById("chatBox");
+      chatBox.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        const msg = doc.data();
+        const p = document.createElement("p");
+        p.innerText = msg.text;
+        chatBox.appendChild(p);
+      });
+    });
+}
+
+document.getElementById("sendBtn").addEventListener("click", async () => {
+  const text = document.getElementById("messageInput").value.trim();
+  if (!text || !currentChatUser) return;
+
+  const chatId = [currentUser.uid, currentChatUser].sort().join("_");
+
+  await db.collection("chats")
+    .doc(chatId)
+    .collection("messages")
+    .add({
+      text: text,
+      senderId: currentUser.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+  document.getElementById("messageInput").value = "";
+});
+
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  auth.signOut();
+});
