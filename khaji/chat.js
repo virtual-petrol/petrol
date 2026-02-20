@@ -1,3 +1,50 @@
+// ================= DEBUG FUNCTION =================
+async function debugFirestore() {
+  console.log("=== DEBUG START ===");
+  console.log("Current User:", currentUser?.uid, currentUser?.email);
+  
+  try {
+    // Check if users collection exists and has data
+    const snapshot = await db.collection("users").get();
+    console.log("Total users in database:", snapshot.size);
+    
+    snapshot.forEach(doc => {
+      console.log("User in DB:", doc.id, doc.data());
+    });
+    
+    if (snapshot.empty) {
+      console.log("❌ No users found in database!");
+    } else {
+      console.log("✅ Users found in database!");
+    }
+  } catch (error) {
+    console.error("❌ Error reading users:", error);
+    console.log("Error code:", error.code);
+    console.log("Error message:", error.message);
+  }
+  
+  console.log("=== DEBUG END ===");
+}
+
+// Auth check ma debug call gara
+auth.onAuthStateChanged(user => {
+  if (!user) {
+    window.location.href = "index.html";
+  } else {
+    currentUser = user;
+    console.log("Logged in as:", user.email);
+    
+    // Update user online status
+    updateUserOnlineStatus(true);
+    
+    // DEBUG: Check database
+    setTimeout(debugFirestore, 2000);
+    
+    // Load all users
+    loadAllUsers();
+  }
+});
+
 const firebaseConfig = {
   apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
   authDomain: "khaji-23a99.firebaseapp.com",
