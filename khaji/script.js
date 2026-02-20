@@ -19,13 +19,25 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
+  if (!username || !email || !password) {
+    document.getElementById("error").innerText = "All fields are required";
+    return;
+  }
+
   try {
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
+    // Create full user profile in users collection
     await db.collection("users").doc(user.uid).set({
       username: username,
-      email: email
+      email: email,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+      isOnline: true,
+      status: "Hey there! I'm using Khaji Chat",
+      bio: "",
+      phoneNumber: ""
     });
 
     window.location.href = "chat.html";
@@ -38,6 +50,11 @@ document.getElementById("registerBtn").addEventListener("click", async () => {
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
+
+  if (!email || !password) {
+    document.getElementById("error").innerText = "Email and password are required";
+    return;
+  }
 
   try {
     await auth.signInWithEmailAndPassword(email, password);
