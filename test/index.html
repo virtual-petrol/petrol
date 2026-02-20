@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ConnectChat - Real-time Chat & Video Calls</title>
+    <title>ConnectChat - Friend Requests & Video Calls</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -15,9 +19,6 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
 
         .container {
@@ -41,11 +42,6 @@
         .auth-section h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
-        }
-
-        .auth-section p {
-            opacity: 0.9;
-            margin-bottom: 30px;
         }
 
         .auth-form {
@@ -157,21 +153,47 @@
             color: #666;
         }
 
-        .search-box {
+        .logout-btn {
+            margin-left: auto;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .tabs {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tab {
+            flex: 1;
             padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
         }
 
-        .search-box input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 25px;
-            outline: none;
+        .tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
         }
 
-        .users-list {
+        .tab-content {
             flex: 1;
             overflow-y: auto;
+        }
+
+        .friend-request-badge {
+            background: #f44336;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+            margin-left: 5px;
         }
 
         .user-item {
@@ -202,6 +224,43 @@
 
         .user-status.offline {
             background: #9e9e9e;
+        }
+
+        .friend-request-actions {
+            display: flex;
+            gap: 5px;
+            margin-left: auto;
+        }
+
+        .accept-btn-small {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .reject-btn-small {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .add-friend-btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: auto;
         }
 
         .main-content {
@@ -252,6 +311,11 @@
         .call-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .call-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .chat-messages {
@@ -318,6 +382,11 @@
 
         .chat-input button:hover {
             background: #5a67d8;
+        }
+
+        .chat-input button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
 
         /* Video Call Modal */
@@ -477,8 +546,8 @@
     <div class="container">
         <!-- Login/Register Section -->
         <div class="auth-section" id="authSection">
-            <h1>ConnectChat</h1>
-            <p>Connect with friends through chat and video calls</p>
+            <h1>🤝 ConnectChat</h1>
+            <p>Connect with friends through friend requests, chat, and video calls</p>
             
             <div class="auth-form">
                 <div class="auth-tabs">
@@ -488,12 +557,12 @@
                 
                 <div id="loginForm">
                     <div class="input-group">
-                        <input type="text" id="loginUsername" placeholder="Username" required>
+                        <input type="email" id="loginEmail" placeholder="Email" required>
                     </div>
                     <div class="input-group">
                         <input type="password" id="loginPassword" placeholder="Password" required>
                     </div>
-                    <button class="auth-btn" onclick="login()">Login</button>
+                    <button class="auth-btn" onclick="loginWithEmail()">Login</button>
                 </div>
                 
                 <div id="registerForm" style="display: none;">
@@ -501,15 +570,12 @@
                         <input type="text" id="regName" placeholder="Full Name" required>
                     </div>
                     <div class="input-group">
-                        <input type="text" id="regUsername" placeholder="Username" required>
-                    </div>
-                    <div class="input-group">
                         <input type="email" id="regEmail" placeholder="Email" required>
                     </div>
                     <div class="input-group">
                         <input type="password" id="regPassword" placeholder="Password" required>
                     </div>
-                    <button class="auth-btn" onclick="register()">Register</button>
+                    <button class="auth-btn" onclick="registerWithEmail()">Register</button>
                 </div>
             </div>
         </div>
@@ -522,17 +588,22 @@
                     <div class="user-profile">
                         <div class="avatar" id="userAvatar">JD</div>
                         <div class="user-info">
-                            <h3 id="userName">John Doe</h3>
+                            <h3 id="userName">Loading...</h3>
                             <p id="userStatus">Online</p>
                         </div>
+                        <button class="logout-btn" onclick="logout()">🚪</button>
                     </div>
                     
-                    <div class="search-box">
-                        <input type="text" placeholder="Search users..." onkeyup="searchUsers(this.value)">
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchTab('friends')" id="friendsTab">Friends</div>
+                        <div class="tab" onclick="switchTab('requests')" id="requestsTab">
+                            Requests <span class="friend-request-badge" id="requestBadge" style="display: none;">0</span>
+                        </div>
+                        <div class="tab" onclick="switchTab('search')" id="searchTab">Search</div>
                     </div>
                     
-                    <div class="users-list" id="usersList">
-                        <!-- Users will be populated here -->
+                    <div class="tab-content" id="tabContent">
+                        <!-- Content will be loaded here -->
                     </div>
                 </div>
 
@@ -540,28 +611,25 @@
                 <div class="main-content">
                     <div class="chat-header">
                         <div class="chat-user-info">
-                            <div class="avatar" id="chatUserAvatar">JS</div>
+                            <div class="avatar" id="chatUserAvatar">?</div>
                             <div>
-                                <h3 id="chatUserName">Select a user</h3>
+                                <h3 id="chatUserName">Select a friend</h3>
                                 <p id="chatUserStatus">...</p>
                             </div>
                         </div>
                         <div class="call-buttons">
-                            <button class="call-btn video-call-btn" onclick="startVideoCall()">📹 Video Call</button>
-                            <button class="call-btn audio-call-btn" onclick="startAudioCall()">🎤 Audio Call</button>
+                            <button class="call-btn video-call-btn" onclick="startVideoCall()" id="videoCallBtn" disabled>📹 Video Call</button>
+                            <button class="call-btn audio-call-btn" onclick="startAudioCall()" id="audioCallBtn" disabled>🎤 Audio Call</button>
                         </div>
                     </div>
 
                     <div class="chat-messages" id="chatMessages">
                         <!-- Messages will appear here -->
-                        <div style="text-align: center; color: #999; margin-top: 50px;">
-                            Select a user to start chatting
-                        </div>
                     </div>
 
                     <div class="chat-input">
-                        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
-                        <button onclick="sendMessage()">Send</button>
+                        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleKeyPress(event)" disabled>
+                        <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
                     </div>
                 </div>
             </div>
@@ -600,63 +668,75 @@
     </div>
 
     <script>
-        // Mock data and state
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
+            authDomain: "khaji-23a99.firebaseapp.com",
+            databaseURL: "https://khaji-23a99-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "khaji-23a99",
+            storageBucket: "khaji-23a99.firebasestorage.app",
+            messagingSenderId: "84794766200",
+            appId: "1:84794766200:web:207a50412961d45275ce8d",
+            measurementId: "G-2RE1L7HQTZ"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // Global variables
         let currentUser = null;
         let selectedUser = null;
-        let users = [];
-        let messages = {};
-        let notifications = [];
+        let currentChatId = null;
+        let currentTab = 'friends';
         
         // WebRTC variables
         let localStream = null;
-        let remoteStream = null;
         let peerConnection = null;
         let isCallActive = false;
         let callType = null;
         let incomingCall = null;
+        let callDocId = null;
         
-        // Configuration
+        // Configuration for WebRTC
         const configuration = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' }
             ]
         };
 
-        // Initialize the app
-        function init() {
-            // Load mock users
-            loadMockUsers();
-            
-            // Check if user is logged in (mock)
-            const savedUser = localStorage.getItem('currentUser');
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
+        // Auth state observer
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // User is signed in
+                currentUser = {
+                    uid: user.uid,
+                    name: user.displayName || user.email.split('@')[0],
+                    email: user.email,
+                    online: true
+                };
+                
+                // Save user to database
+                await database.ref('users/' + user.uid).set({
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    online: true,
+                    lastSeen: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                // Set user as offline when disconnected
+                database.ref('users/' + user.uid + '/online').onDisconnect().set(false);
+                database.ref('users/' + user.uid + '/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+                
                 showApp();
+                loadFriends();
+                listenForFriendRequests();
+                listenForCalls();
+            } else {
+                showAuth();
             }
-        }
-
-        // Load mock users
-        function loadMockUsers() {
-            users = [
-                { id: 1, name: 'Alice Smith', username: 'alice', email: 'alice@example.com', online: true, avatar: 'AS' },
-                { id: 2, name: 'Bob Johnson', username: 'bob', email: 'bob@example.com', online: true, avatar: 'BJ' },
-                { id: 3, name: 'Charlie Brown', username: 'charlie', email: 'charlie@example.com', online: false, avatar: 'CB' },
-                { id: 4, name: 'Diana Prince', username: 'diana', email: 'diana@example.com', online: true, avatar: 'DP' }
-            ];
-            
-            // Initialize messages for each user
-            users.forEach(user => {
-                messages[user.id] = [];
-            });
-            
-            // Add some mock messages
-            messages[1] = [
-                { id: 1, sender: 1, text: 'Hey, how are you?', time: '10:30 AM', sent: false },
-                { id: 2, sender: 'me', text: 'I\'m good, thanks! How about you?', time: '10:31 AM', sent: true }
-            ];
-            
-            updateUsersList();
-        }
+        });
 
         // Switch between login and register tabs
         function switchAuthTab(tab) {
@@ -674,64 +754,45 @@
             }
         }
 
-        // Login function
-        function login() {
-            const username = document.getElementById('loginUsername').value;
+        // Email/Password Login
+        async function loginWithEmail() {
+            const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
             
-            if (!username || !password) {
-                showNotification('Please fill in all fields', 'error');
-                return;
-            }
-            
-            // Mock login - check if user exists
-            const user = users.find(u => u.username === username);
-            if (user) {
-                currentUser = user;
-                localStorage.setItem('currentUser', JSON.stringify(user));
-                showApp();
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
                 showNotification('Login successful!', 'success');
-            } else {
-                showNotification('Invalid username or password', 'error');
+            } catch (error) {
+                showNotification(error.message, 'error');
             }
         }
 
-        // Register function
-        function register() {
+        // Email/Password Register
+        async function registerWithEmail() {
             const name = document.getElementById('regName').value;
-            const username = document.getElementById('regUsername').value;
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPassword').value;
             
-            if (!name || !username || !email || !password) {
-                showNotification('Please fill in all fields', 'error');
-                return;
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                await userCredential.user.updateProfile({
+                    displayName: name
+                });
+                showNotification('Registration successful!', 'success');
+            } catch (error) {
+                showNotification(error.message, 'error');
             }
-            
-            // Check if username exists
-            if (users.find(u => u.username === username)) {
-                showNotification('Username already exists', 'error');
-                return;
+        }
+
+        // Logout
+        async function logout() {
+            if (currentUser) {
+                await database.ref('users/' + currentUser.uid).update({
+                    online: false,
+                    lastSeen: firebase.database.ServerValue.TIMESTAMP
+                });
             }
-            
-            // Create new user
-            const newUser = {
-                id: users.length + 1,
-                name: name,
-                username: username,
-                email: email,
-                online: true,
-                avatar: name.split(' ').map(n => n[0]).join('').substring(0, 2)
-            };
-            
-            users.push(newUser);
-            messages[newUser.id] = [];
-            
-            currentUser = newUser;
-            localStorage.setItem('currentUser', JSON.stringify(newUser));
-            
-            showApp();
-            showNotification('Registration successful!', 'success');
+            await auth.signOut();
         }
 
         // Show main app
@@ -740,108 +801,404 @@
             document.getElementById('appSection').style.display = 'block';
             
             // Update user profile
-            document.getElementById('userAvatar').textContent = currentUser.avatar;
-            document.getElementById('userName').textContent = currentUser.name;
-            
-            updateUsersList();
+            if (currentUser) {
+                document.getElementById('userAvatar').textContent = getInitials(currentUser.name);
+                document.getElementById('userName').textContent = currentUser.name;
+            }
         }
 
-        // Update users list
-        function updateUsersList() {
-            const usersList = document.getElementById('usersList');
-            usersList.innerHTML = '';
+        // Show auth section
+        function showAuth() {
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('appSection').style.display = 'none';
+            currentUser = null;
+            selectedUser = null;
+        }
+
+        // Get initials from name
+        function getInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        }
+
+        // Switch between tabs
+        function switchTab(tab) {
+            currentTab = tab;
             
-            users.filter(u => u.id !== currentUser.id).forEach(user => {
-                const userItem = document.createElement('div');
-                userItem.className = `user-item ${selectedUser && selectedUser.id === user.id ? 'active' : ''}`;
-                userItem.onclick = () => selectUser(user);
+            // Update tab styles
+            document.getElementById('friendsTab').classList.remove('active');
+            document.getElementById('requestsTab').classList.remove('active');
+            document.getElementById('searchTab').classList.remove('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
+            
+            // Load tab content
+            if (tab === 'friends') {
+                loadFriends();
+            } else if (tab === 'requests') {
+                loadFriendRequests();
+            } else if (tab === 'search') {
+                loadSearchUsers();
+            }
+        }
+
+        // Load friends list
+        function loadFriends() {
+            database.ref('friendships').orderByChild(currentUser.uid + '/status').equalTo('accepted').on('value', (snapshot) => {
+                const friendships = snapshot.val();
+                const friendIds = [];
                 
-                userItem.innerHTML = `
-                    <div class="avatar">${user.avatar}</div>
-                    <div>
-                        <h4>${user.name}</h4>
-                        <p style="font-size: 12px; color: #666;">@${user.username}</p>
-                    </div>
-                    <div class="user-status ${user.online ? '' : 'offline'}"></div>
-                `;
+                if (friendships) {
+                    Object.keys(friendships).forEach(key => {
+                        const friendship = friendships[key];
+                        if (friendship[currentUser.uid] && friendship[currentUser.uid].status === 'accepted') {
+                            const otherId = Object.keys(friendship).find(id => id !== currentUser.uid);
+                            if (otherId) friendIds.push(otherId);
+                        }
+                    });
+                }
                 
-                usersList.appendChild(userItem);
+                loadUsersByIds(friendIds, 'friends');
             });
         }
 
-        // Search users
-        function searchUsers(query) {
-            const filteredUsers = users.filter(u => 
-                u.id !== currentUser.id && 
-                (u.name.toLowerCase().includes(query.toLowerCase()) || 
-                 u.username.toLowerCase().includes(query.toLowerCase()))
-            );
-            
-            const usersList = document.getElementById('usersList');
-            usersList.innerHTML = '';
-            
-            filteredUsers.forEach(user => {
-                const userItem = document.createElement('div');
-                userItem.className = `user-item ${selectedUser && selectedUser.id === user.id ? 'active' : ''}`;
-                userItem.onclick = () => selectUser(user);
+        // Load friend requests
+        function loadFriendRequests() {
+            database.ref('friendRequests').orderByChild('to').equalTo(currentUser.uid).on('value', (snapshot) => {
+                const requests = snapshot.val();
+                const requestIds = [];
+                const requestData = {};
                 
-                userItem.innerHTML = `
-                    <div class="avatar">${user.avatar}</div>
-                    <div>
-                        <h4>${user.name}</h4>
-                        <p style="font-size: 12px; color: #666;">@${user.username}</p>
-                    </div>
-                    <div class="user-status ${user.online ? '' : 'offline'}"></div>
-                `;
+                if (requests) {
+                    Object.keys(requests).forEach(key => {
+                        const request = requests[key];
+                        if (request.status === 'pending') {
+                            requestIds.push(request.from);
+                            requestData[request.from] = key;
+                        }
+                    });
+                }
                 
-                usersList.appendChild(userItem);
+                // Update badge
+                const badge = document.getElementById('requestBadge');
+                if (requestIds.length > 0) {
+                    badge.style.display = 'inline';
+                    badge.textContent = requestIds.length;
+                } else {
+                    badge.style.display = 'none';
+                }
+                
+                loadUsersByIds(requestIds, 'requests', requestData);
+            });
+        }
+
+        // Load search users (all users except self and friends)
+        function loadSearchUsers() {
+            database.ref('users').once('value', (snapshot) => {
+                const users = snapshot.val();
+                const allUsers = [];
+                
+                // First, get friends
+                database.ref('friendships').orderByChild(currentUser.uid + '/status').equalTo('accepted').once('value', (friendsSnapshot) => {
+                    const friendships = friendsSnapshot.val();
+                    const friendIds = [];
+                    
+                    if (friendships) {
+                        Object.keys(friendships).forEach(key => {
+                            const friendship = friendships[key];
+                            if (friendship[currentUser.uid] && friendship[currentUser.uid].status === 'accepted') {
+                                const otherId = Object.keys(friendship).find(id => id !== currentUser.uid);
+                                if (otherId) friendIds.push(otherId);
+                            }
+                        });
+                    }
+                    
+                    // Get pending requests
+                    database.ref('friendRequests').orderByChild('from').equalTo(currentUser.uid).once('value', (sentSnapshot) => {
+                        const sentRequests = sentSnapshot.val();
+                        const pendingIds = [];
+                        
+                        if (sentRequests) {
+                            Object.keys(sentRequests).forEach(key => {
+                                if (sentRequests[key].status === 'pending') {
+                                    pendingIds.push(sentRequests[key].to);
+                                }
+                            });
+                        }
+                        
+                        // Filter users
+                        Object.keys(users).forEach(uid => {
+                            if (uid !== currentUser.uid && 
+                                !friendIds.includes(uid) && 
+                                !pendingIds.includes(uid)) {
+                                allUsers.push({
+                                    uid: uid,
+                                    ...users[uid]
+                                });
+                            }
+                        });
+                        
+                        displayUsers(allUsers, 'search');
+                    });
+                });
+            });
+        }
+
+        // Load users by IDs
+        function loadUsersByIds(userIds, type, requestData = {}) {
+            if (userIds.length === 0) {
+                displayUsers([], type);
+                return;
+            }
+            
+            const users = [];
+            let loaded = 0;
+            
+            userIds.forEach(uid => {
+                database.ref('users/' + uid).once('value', (snapshot) => {
+                    const user = snapshot.val();
+                    if (user) {
+                        users.push({
+                            uid: uid,
+                            ...user,
+                            requestKey: requestData[uid]
+                        });
+                    }
+                    
+                    loaded++;
+                    if (loaded === userIds.length) {
+                        displayUsers(users, type);
+                    }
+                });
+            });
+        }
+
+        // Display users in tab content
+        function displayUsers(users, type) {
+            const tabContent = document.getElementById('tabContent');
+            
+            if (users.length === 0) {
+                if (type === 'friends') {
+                    tabContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">No friends yet. Add some friends!</div>';
+                } else if (type === 'requests') {
+                    tabContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">No pending friend requests</div>';
+                } else {
+                    tabContent.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">No users found</div>';
+                }
+                return;
+            }
+            
+            let html = '';
+            users.forEach(user => {
+                const isOnline = user.online ? '' : 'offline';
+                const lastSeen = user.lastSeen ? new Date(user.lastSeen).toLocaleString() : 'Unknown';
+                
+                if (type === 'friends') {
+                    html += `
+                        <div class="user-item" onclick="selectUser('${user.uid}')">
+                            <div class="avatar">${getInitials(user.name)}</div>
+                            <div>
+                                <h4>${user.name}</h4>
+                                <p style="font-size: 12px; color: #666;">${user.email}</p>
+                            </div>
+                            <div class="user-status ${isOnline}" title="Last seen: ${lastSeen}"></div>
+                        </div>
+                    `;
+                } else if (type === 'requests') {
+                    html += `
+                        <div class="user-item">
+                            <div class="avatar">${getInitials(user.name)}</div>
+                            <div>
+                                <h4>${user.name}</h4>
+                                <p style="font-size: 12px; color: #666;">${user.email}</p>
+                            </div>
+                            <div class="friend-request-actions">
+                                <button class="accept-btn-small" onclick="acceptFriendRequest('${user.uid}', '${user.requestKey}')">✓ Accept</button>
+                                <button class="reject-btn-small" onclick="rejectFriendRequest('${user.uid}', '${user.requestKey}')">✗ Reject</button>
+                            </div>
+                        </div>
+                    `;
+                } else if (type === 'search') {
+                    html += `
+                        <div class="user-item">
+                            <div class="avatar">${getInitials(user.name)}</div>
+                            <div>
+                                <h4>${user.name}</h4>
+                                <p style="font-size: 12px; color: #666;">${user.email}</p>
+                            </div>
+                            <button class="add-friend-btn" onclick="sendFriendRequest('${user.uid}')">+ Add Friend</button>
+                        </div>
+                    `;
+                }
+            });
+            
+            tabContent.innerHTML = html;
+        }
+
+        // Send friend request
+        async function sendFriendRequest(toUid) {
+            try {
+                const requestRef = database.ref('friendRequests').push();
+                await requestRef.set({
+                    from: currentUser.uid,
+                    to: toUid,
+                    status: 'pending',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                showNotification('Friend request sent!', 'success');
+                loadSearchUsers(); // Refresh search
+            } catch (error) {
+                showNotification('Error sending friend request', 'error');
+            }
+        }
+
+        // Accept friend request
+        async function acceptFriendRequest(fromUid, requestKey) {
+            try {
+                // Update request status
+                await database.ref('friendRequests/' + requestKey).update({
+                    status: 'accepted'
+                });
+                
+                // Create friendship
+                const friendshipId = [currentUser.uid, fromUid].sort().join('_');
+                await database.ref('friendships/' + friendshipId).set({
+                    [currentUser.uid]: {
+                        status: 'accepted',
+                        since: firebase.database.ServerValue.TIMESTAMP
+                    },
+                    [fromUid]: {
+                        status: 'accepted',
+                        since: firebase.database.ServerValue.TIMESTAMP
+                    }
+                });
+                
+                showNotification('Friend request accepted!', 'success');
+                loadFriendRequests(); // Refresh requests
+            } catch (error) {
+                showNotification('Error accepting friend request', 'error');
+            }
+        }
+
+        // Reject friend request
+        async function rejectFriendRequest(fromUid, requestKey) {
+            try {
+                await database.ref('friendRequests/' + requestKey).remove();
+                showNotification('Friend request rejected', 'info');
+                loadFriendRequests(); // Refresh requests
+            } catch (error) {
+                showNotification('Error rejecting friend request', 'error');
+            }
+        }
+
+        // Listen for friend requests
+        function listenForFriendRequests() {
+            database.ref('friendRequests').orderByChild('to').equalTo(currentUser.uid).on('value', (snapshot) => {
+                const requests = snapshot.val();
+                let count = 0;
+                
+                if (requests) {
+                    Object.keys(requests).forEach(key => {
+                        if (requests[key].status === 'pending') {
+                            count++;
+                        }
+                    });
+                }
+                
+                // Update badge
+                const badge = document.getElementById('requestBadge');
+                if (count > 0) {
+                    badge.style.display = 'inline';
+                    badge.textContent = count;
+                } else {
+                    badge.style.display = 'none';
+                }
             });
         }
 
         // Select user to chat with
-        function selectUser(user) {
-            selectedUser = user;
-            
-            document.getElementById('chatUserAvatar').textContent = user.avatar;
-            document.getElementById('chatUserName').textContent = user.name;
-            document.getElementById('chatUserStatus').textContent = user.online ? 'Online' : 'Offline';
-            
-            loadMessages(user.id);
+        function selectUser(uid) {
+            database.ref('users/' + uid).once('value', (snapshot) => {
+                selectedUser = {
+                    uid: uid,
+                    ...snapshot.val()
+                };
+                
+                // Create or get chat room
+                const chatId = [currentUser.uid, uid].sort().join('_');
+                currentChatId = chatId;
+                
+                // Create chat room if it doesn't exist
+                database.ref('chats/' + chatId).set({
+                    participants: {
+                        [currentUser.uid]: true,
+                        [uid]: true
+                    },
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                // Update UI
+                document.getElementById('chatUserAvatar').textContent = getInitials(selectedUser.name);
+                document.getElementById('chatUserName').textContent = selectedUser.name;
+                document.getElementById('chatUserStatus').textContent = selectedUser.online ? 'Online' : 'Offline';
+                
+                // Enable chat controls
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('videoCallBtn').disabled = false;
+                document.getElementById('audioCallBtn').disabled = false;
+                
+                // Load messages
+                loadMessages();
+            });
         }
 
-        // Load messages for selected user
-        function loadMessages(userId) {
-            const chatMessages = document.getElementById('chatMessages');
-            const userMessages = messages[userId] || [];
+        // Load messages
+        function loadMessages() {
+            if (!currentChatId) return;
             
-            if (userMessages.length === 0) {
-                chatMessages.innerHTML = '<div style="text-align: center; color: #999; margin-top: 50px;">No messages yet. Start a conversation!</div>';
-                return;
-            }
+            const messagesRef = database.ref('messages/' + currentChatId).orderByChild('timestamp');
             
-            chatMessages.innerHTML = '';
-            userMessages.forEach(msg => {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${msg.sent === 'me' || msg.sent === true ? 'sent' : ''}`;
+            messagesRef.off(); // Remove previous listener
+            messagesRef.on('value', (snapshot) => {
+                const messages = snapshot.val();
+                const chatMessages = document.getElementById('chatMessages');
                 
-                messageDiv.innerHTML = `
-                    <div class="message-content">
-                        ${msg.text}
-                        <div class="message-time">${msg.time}</div>
-                    </div>
-                `;
+                if (!messages) {
+                    chatMessages.innerHTML = '<div style="text-align: center; color: #999; margin-top: 50px;">No messages yet. Start a conversation!</div>';
+                    return;
+                }
                 
-                chatMessages.appendChild(messageDiv);
+                let html = '';
+                Object.keys(messages).sort((a, b) => messages[a].timestamp - messages[b].timestamp).forEach(key => {
+                    const msg = messages[key];
+                    const isSent = msg.sender === currentUser.uid;
+                    
+                    html += `
+                        <div class="message ${isSent ? 'sent' : ''}">
+                            <div class="message-content">
+                                ${msg.text}
+                                <div class="message-time">${formatTime(msg.timestamp)}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                chatMessages.innerHTML = html;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             });
-            
-            // Scroll to bottom
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Format timestamp
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
         // Send message
-        function sendMessage() {
-            if (!selectedUser) {
-                showNotification('Please select a user to chat with', 'warning');
+        async function sendMessage() {
+            if (!selectedUser || !currentChatId) {
+                showNotification('Please select a friend to chat with', 'warning');
                 return;
             }
             
@@ -850,46 +1207,17 @@
             
             if (!text) return;
             
-            const now = new Date();
-            const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            // Add message to current user's chat
-            const message = {
-                id: Date.now(),
-                sender: 'me',
+            // Save message to Firebase
+            const messageRef = database.ref('messages/' + currentChatId).push();
+            await messageRef.set({
+                sender: currentUser.uid,
+                receiver: selectedUser.uid,
                 text: text,
-                time: timeString,
-                sent: true
-            };
-            
-            if (!messages[selectedUser.id]) {
-                messages[selectedUser.id] = [];
-            }
-            
-            messages[selectedUser.id].push(message);
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
             
             // Clear input
             input.value = '';
-            
-            // Reload messages
-            loadMessages(selectedUser.id);
-            
-            // Simulate reply after 2 seconds (for demo)
-            setTimeout(() => {
-                if (selectedUser) {
-                    const reply = {
-                        id: Date.now(),
-                        sender: selectedUser.id,
-                        text: 'Thanks for your message! This is an automated reply.',
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        sent: false
-                    };
-                    
-                    messages[selectedUser.id].push(reply);
-                    loadMessages(selectedUser.id);
-                    showNotification(`New message from ${selectedUser.name}`);
-                }
-            }, 2000);
         }
 
         // Handle enter key press
@@ -902,7 +1230,7 @@
         // Video/Audio call functions
         async function startVideoCall() {
             if (!selectedUser) {
-                showNotification('Please select a user to call', 'warning');
+                showNotification('Please select a friend to call', 'warning');
                 return;
             }
             
@@ -912,7 +1240,7 @@
 
         async function startAudioCall() {
             if (!selectedUser) {
-                showNotification('Please select a user to call', 'warning');
+                showNotification('Please select a friend to call', 'warning');
                 return;
             }
             
@@ -934,6 +1262,16 @@
                 // Show video modal
                 document.getElementById('videoModal').style.display = 'block';
                 
+                // Create call document in Firebase
+                callDocId = Date.now().toString();
+                await database.ref('calls/' + callDocId).set({
+                    caller: currentUser.uid,
+                    callee: selectedUser.uid,
+                    type: callType,
+                    status: 'ringing',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                
                 // Create peer connection
                 peerConnection = new RTCPeerConnection(configuration);
                 
@@ -950,8 +1288,7 @@
                 // Handle ICE candidates
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
-                        // Send candidate to remote peer (mock)
-                        console.log('ICE candidate:', event.candidate);
+                        database.ref('calls/' + callDocId + '/iceCandidates/' + currentUser.uid).push(event.candidate);
                     }
                 };
                 
@@ -959,40 +1296,134 @@
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
                 
-                // Mock: Simulate incoming call for demo
-                setTimeout(() => {
-                    showIncomingCall(selectedUser, callType);
-                }, 2000);
+                // Save offer to Firebase
+                await database.ref('calls/' + callDocId + '/offer').set({
+                    type: offer.type,
+                    sdp: offer.sdp
+                });
                 
                 isCallActive = true;
                 
             } catch (error) {
                 console.error('Error initializing call:', error);
-                showNotification('Failed to initialize call', 'error');
+                showNotification('Failed to initialize call: ' + error.message, 'error');
+                endCall();
             }
         }
 
-        function showIncomingCall(user, type) {
-            incomingCall = {
-                user: user,
-                type: type
-            };
+        // Listen for incoming calls
+        function listenForCalls() {
+            if (!currentUser) return;
             
-            document.getElementById('incomingCaller').textContent = `${user.name} is calling...`;
-            document.getElementById('callType').textContent = type === 'video' ? '📹 Video Call' : '🎤 Audio Call';
-            document.getElementById('incomingCallModal').style.display = 'block';
+            database.ref('calls').orderByChild('callee').equalTo(currentUser.uid).on('child_added', (snapshot) => {
+                const call = snapshot.val();
+                
+                if (call.status === 'ringing' && call.callee === currentUser.uid) {
+                    // Get caller info
+                    database.ref('users/' + call.caller).once('value', (userSnapshot) => {
+                        const caller = userSnapshot.val();
+                        
+                        incomingCall = {
+                            id: snapshot.key,
+                            caller: call.caller,
+                            callee: call.callee,
+                            type: call.type,
+                            callerInfo: caller
+                        };
+                        
+                        document.getElementById('incomingCaller').textContent = `${caller.name} is calling...`;
+                        document.getElementById('callType').textContent = call.type === 'video' ? '📹 Video Call' : '🎤 Audio Call';
+                        document.getElementById('incomingCallModal').style.display = 'block';
+                    });
+                }
+            });
         }
 
-        function acceptCall() {
+        async function acceptCall() {
+            if (!incomingCall) return;
+            
             document.getElementById('incomingCallModal').style.display = 'none';
             
-            // Mock: Accept call
-            document.getElementById('remoteVideoLabel').textContent = incomingCall.user.name;
-            
-            showNotification(`Call with ${incomingCall.user.name} started`);
+            try {
+                // Update call status
+                await database.ref('calls/' + incomingCall.id).update({
+                    status: 'connected'
+                });
+                
+                // Get user media
+                const constraints = {
+                    video: incomingCall.type === 'video',
+                    audio: true
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                document.getElementById('localVideo').srcObject = localStream;
+                
+                // Show video modal
+                document.getElementById('videoModal').style.display = 'block';
+                document.getElementById('remoteVideoLabel').textContent = incomingCall.callerInfo.name;
+                
+                // Create peer connection
+                peerConnection = new RTCPeerConnection(configuration);
+                
+                // Add local stream to peer connection
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                // Handle remote stream
+                peerConnection.ontrack = (event) => {
+                    document.getElementById('remoteVideo').srcObject = event.streams[0];
+                };
+                
+                // Handle ICE candidates
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        database.ref('calls/' + incomingCall.id + '/iceCandidates/' + currentUser.uid).push(event.candidate);
+                    }
+                };
+                
+                // Get offer from Firebase
+                const callSnapshot = await database.ref('calls/' + incomingCall.id).once('value');
+                const call = callSnapshot.val();
+                
+                if (call.offer) {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
+                    
+                    // Create answer
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    
+                    // Save answer to Firebase
+                    await database.ref('calls/' + incomingCall.id + '/answer').set({
+                        type: answer.type,
+                        sdp: answer.sdp
+                    });
+                }
+                
+                // Listen for ICE candidates from caller
+                database.ref('calls/' + incomingCall.id + '/iceCandidates/' + incomingCall.caller).on('child_added', (snapshot) => {
+                    const candidate = snapshot.val();
+                    if (peerConnection) {
+                        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    }
+                });
+                
+                isCallActive = true;
+                
+            } catch (error) {
+                console.error('Error accepting call:', error);
+                showNotification('Failed to accept call', 'error');
+                endCall();
+            }
         }
 
         function rejectCall() {
+            if (incomingCall) {
+                database.ref('calls/' + incomingCall.id).update({
+                    status: 'rejected'
+                });
+            }
             document.getElementById('incomingCallModal').style.display = 'none';
             incomingCall = null;
             showNotification('Call rejected');
@@ -1011,10 +1442,19 @@
                 localStream = null;
             }
             
+            // Update call status in Firebase
+            if (callDocId) {
+                database.ref('calls/' + callDocId).update({
+                    status: 'ended',
+                    endedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+            
             // Hide video modal
             document.getElementById('videoModal').style.display = 'none';
             
             isCallActive = false;
+            callDocId = null;
             showNotification('Call ended');
         }
 
@@ -1053,9 +1493,6 @@
                 notification.remove();
             }, 3000);
         }
-
-        // Initialize the app
-        init();
     </script>
 </body>
 </html>
