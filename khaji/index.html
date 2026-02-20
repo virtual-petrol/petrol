@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omegle Firebase - Auth</title>
+  
+  <!-- Google Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary: #6C63FF;
+      --primary-dark: #5a52d6;
+      --error: #ff4d4d;
+      --success: #4caf50;
+      --text-main: #333;
+      --text-muted: #666;
+      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* Card Container */
+    .auth-container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 400px;
+      padding: 40px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-area {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo-area h1 {
+      color: var(--text-main);
+      font-weight: 700;
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .logo-area p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Tab Switcher */
+    .tab-container {
+      display: flex;
+      background: #f0f2f5;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 30px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .tab-btn.active {
+      background: white;
+      color: var(--primary);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    /* Form Groups */
+    .form-group {
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-wrapper input {
+      width: 100%;
+      padding: 14px 16px;
+      padding-left: 45px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 15px;
+      transition: all 0.3s;
+      background: #fafafa;
+    }
+
+    .input-wrapper input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: white;
+    }
+
+    .input-wrapper .icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #aaa;
+      font-size: 20px;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #aaa;
+      user-select: none;
+    }
+
+    /* Buttons */
+    .main-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.1s;
+      margin-top: 10px;
+    }
+
+    .main-btn:hover {
+      background: var(--primary-dark);
+    }
+
+    .main-btn:active {
+      transform: scale(0.98);
+    }
+
+    .main-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .main-btn.loading .btn-text {
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    .main-btn.loading::after {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      margin: auto;
+      border: 3px solid transparent;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Messages */
+    .message-area {
+      margin-bottom: 20px;
+      text-align: center;
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    .error-msg {
+      color: var(--error);
+    }
+
+    .success-msg {
+      color: var(--success);
+    }
+
+    /* Hide element utility */
+    .hidden {
+      display: none !important;
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="auth-container">
+  <div class="logo-area">
+    <h1>Khaji Chat</h1>
+    <p>Welcome! Please sign in or create an account.</p>
+  </div>
+
+  <!-- Tab Switcher -->
+  <div class="tab-container">
+    <button id="login-tab" class="tab-btn active" onclick="switchTab('login')">Login</button>
+    <button id="register-tab" class="tab-btn" onclick="switchTab('register')">Register</button>
+  </div>
+
+  <!-- System Messages -->
+  <div id="message-area" class="message-area"></div>
+
+  <form id="auth-form" onsubmit="return false;">
+    
+    <!-- Username Field (Only for Register) -->
+    <div id="username-group" class="form-group hidden">
+      <label for="username">Username</label>
+      <div class="input-wrapper">
+        <span class="material-icons icon">person_outline</span>
+        <input type="text" id="username" placeholder="Choose a username">
+      </div>
+    </div>
+
+    <!-- Email Field -->
+    <div class="form-group">
+      <label for="email">Email Address</label>
+      <div class="input-wrapper">
+        <span class="material-icons icon">mail_outline</span>
+        <input type="email" id="email" placeholder="Enter your email" required>
+      </div>
+    </div>
+
+    <!-- Password Field -->
+    <div class="form-group">
+      <label for="password">Password</label>
+      <div class="input-wrapper">
+        <span class="material-icons icon">lock_outline</span>
+        <input type="password" id="password" placeholder="Enter your password" required>
+        <span class="material-icons toggle-password" onclick="togglePassword()">visibility_off</span>
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <button type="submit" id="main-btn" class="main-btn" onclick="handleAuth()">
+      <span class="btn-text">Login</span>
+    </button>
+  </form>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } 
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc } 
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  // Firebase Configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
+    authDomain: "khaji-23a99.firebaseapp.com",
+    databaseURL: "https://khaji-23a99-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "khaji-23a99",
+    storageBucket: "khaji-23a99.firebasestorage.app",
+    messagingSenderId: "84794766200",
+    appId: "1:84794766200:web:6f67917ca967334675ce8d",
+    measurementId: "G-QQQQ2ERH10"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // DOM Elements
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const usernameInput = document.getElementById('username');
+  const usernameGroup = document.getElementById('username-group');
+  const mainBtn = document.getElementById('main-btn');
+  const btnText = mainBtn.querySelector('.btn-text');
+  const messageArea = document.getElementById('message-area');
+  
+  let isLoginMode = true;
+
+  // --- Core Functions ---
+
+  // Toggle between Login and Register UI
+  window.switchTab = function(mode) {
+    isLoginMode = (mode === 'login');
+    
+    // Update Tab Styles
+    document.getElementById('login-tab').classList.toggle('active', isLoginMode);
+    document.getElementById('register-tab').classList.toggle('active', !isLoginMode);
+    
+    // Show/Hide Username field
+    usernameGroup.classList.toggle('hidden', isLoginMode);
+    
+    // Update Button Text
+    btnText.textContent = isLoginMode ? 'Login' : 'Create Account';
+    
+    // Clear messages
+    clearMessage();
+  }
+
+  // Handle Auth Logic
+  window.handleAuth = async function() {
+    const email = emailInput.value;
+    const password = passwordInput.value;
+    const username = usernameInput.value;
+
+    // Basic Validation
+    if (!email || !password) {
+      showMessage('Please fill in all fields.', 'error');
+      return;
+    }
+
+    if (!isLoginMode && !username) {
+      showMessage('Please choose a username.', 'error');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (isLoginMode) {
+        // --- LOGIN ---
+        await signInWithEmailAndPassword(auth, email, password);
+        showMessage('Success! Redirecting...', 'success');
+        window.location.href = "chat.html";
+      } else {
+        // --- REGISTER ---
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // Save to Firestore
+        await setDoc(doc(db, "users", userCred.user.uid), {
+          username: username,
+          email: email,
+          createdAt: new Date()
+        });
+        
+        showMessage('Account created! Redirecting...', 'success');
+        window.location.href = "chat.html";
+      }
+    } catch (error) {
+      console.error(error);
+      setLoading(false);
+      handleFirebaseError(error);
+    }
+  }
+
+  // Toggle Password Visibility
+  window.togglePassword = function() {
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+    document.querySelector('.toggle-password').textContent = type === 'password' ? 'visibility_off' : 'visibility';
+  }
+
+  // --- Helpers ---
+
+  function setLoading(state) {
+    mainBtn.disabled = state;
+    mainBtn.classList.toggle('loading', state);
+  }
+
+  function showMessage(msg, type) {
+    messageArea.textContent = msg;
+    messageArea.className = `message-area ${type}-msg`;
+  }
+
+  function clearMessage() {
+    messageArea.textContent = '';
+    messageArea.className = 'message-area';
+  }
+
+  function handleFirebaseError(error) {
+    let msg = "An error occurred.";
+    if (error.code === 'auth/email-already-in-use') msg = "Email already in use.";
+    else if (error.code === 'auth/invalid-email') msg = "Invalid email format.";
+    else if (error.code === 'auth/weak-password') msg = "Password should be at least 6 characters.";
+    else if (error.code === 'auth/user-not-found') msg = "No account found with this email.";
+    else if (error.code === 'auth/wrong-password') msg = "Incorrect password.";
+    
+    showMessage(msg, 'error');
+  }
+
+</script>
+
+</body>
+</html>
