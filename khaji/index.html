@@ -1,73 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Omegle Firebase - Auth</title>
-  
-  <!-- Google Fonts & Icons -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  
-  <!-- Custom CSS -->
+  <title>Khaji Chat</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="auth-body">
 
-<div class="auth-container">
-  <div class="logo-area">
-    <h1>Khaji Chat</h1>
-    <p>Welcome! Please sign in or create an account.</p>
-  </div>
+<div class="auth-card">
+  <h2>Khaji Chat</h2>
 
-  <!-- Tab Switcher -->
-  <div class="tab-container">
-    <button id="login-tab" class="tab-btn active" onclick="switchTab('login')">Login</button>
-    <button id="register-tab" class="tab-btn" onclick="switchTab('register')">Register</button>
-  </div>
+  <input type="text" id="username" placeholder="Username (for register)">
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
 
-  <!-- System Messages -->
-  <div id="message-area" class="message-area"></div>
+  <button onclick="register()">Register</button>
+  <button onclick="login()">Login</button>
 
-  <form id="auth-form" onsubmit="return false;">
-    
-    <!-- Username Field (Only for Register) -->
-    <div id="username-group" class="form-group hidden">
-      <label for="username">Username</label>
-      <div class="input-wrapper">
-        <span class="material-icons icon">person_outline</span>
-        <input type="text" id="username" placeholder="Choose a username">
-      </div>
-    </div>
-
-    <!-- Email Field -->
-    <div class="form-group">
-      <label for="email">Email Address</label>
-      <div class="input-wrapper">
-        <span class="material-icons icon">mail_outline</span>
-        <input type="email" id="email" placeholder="Enter your email" required>
-      </div>
-    </div>
-
-    <!-- Password Field -->
-    <div class="form-group">
-      <label for="password">Password</label>
-      <div class="input-wrapper">
-        <span class="material-icons icon">lock_outline</span>
-        <input type="password" id="password" placeholder="Enter your password" required>
-        <span class="material-icons toggle-password" onclick="togglePassword()">visibility_off</span>
-      </div>
-    </div>
-
-    <!-- Action Button -->
-    <button type="submit" id="main-btn" class="main-btn" onclick="handleAuth()">
-      <span class="btn-text">Login</span>
-    </button>
-  </form>
+  <p id="auth-error"></p>
 </div>
 
-<!-- Custom JS -->
 <script type="module" src="script.js"></script>
-
 </body>
 </html>
