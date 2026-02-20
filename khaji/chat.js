@@ -1,50 +1,3 @@
-// ================= DEBUG FUNCTION =================
-async function debugFirestore() {
-  console.log("=== DEBUG START ===");
-  console.log("Current User:", currentUser?.uid, currentUser?.email);
-  
-  try {
-    // Check if users collection exists and has data
-    const snapshot = await db.collection("users").get();
-    console.log("Total users in database:", snapshot.size);
-    
-    snapshot.forEach(doc => {
-      console.log("User in DB:", doc.id, doc.data());
-    });
-    
-    if (snapshot.empty) {
-      console.log("❌ No users found in database!");
-    } else {
-      console.log("✅ Users found in database!");
-    }
-  } catch (error) {
-    console.error("❌ Error reading users:", error);
-    console.log("Error code:", error.code);
-    console.log("Error message:", error.message);
-  }
-  
-  console.log("=== DEBUG END ===");
-}
-
-// Auth check ma debug call gara
-auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.href = "index.html";
-  } else {
-    currentUser = user;
-    console.log("Logged in as:", user.email);
-    
-    // Update user online status
-    updateUserOnlineStatus(true);
-    
-    // DEBUG: Check database
-    setTimeout(debugFirestore, 2000);
-    
-    // Load all users
-    loadAllUsers();
-  }
-});
-
 const firebaseConfig = {
   apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
   authDomain: "khaji-23a99.firebaseapp.com",
@@ -56,11 +9,18 @@ const firebaseConfig = {
   measurementId: "G-2RE1L7HQTZ"
 };
 
+// Initialize Firebase FIRST
 firebase.initializeApp(firebaseConfig);
 
+// Initialize services SECOND
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// Enable offline persistence (optional)
+db.enablePersistence()
+  .catch(err => console.log("Persistence error:", err));
+
+// Variables THIRD
 let currentUser = null;
 let currentChatUser = null;
 let currentChatUserData = null;
@@ -68,61 +28,76 @@ let unsubscribeMessages = null;
 let unsubscribeUsers = null;
 
 // ================= AUTH CHECK =================
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async user => {
   if (!user) {
     window.location.href = "index.html";
   } else {
     currentUser = user;
-    console.log("Logged in as:", user.email);
+    console.log("✅ Logged in as:", user.email);
     
-    // Update user online status
-    updateUserOnlineStatus(true);
+    try {
+      // Update user online status
+      await db.collection("users").doc(user.uid).update({
+        isOnline: true,
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (error) {
+      console.log("Status update error (might be new user):", error.message);
+    }
     
-    // Load all users
-    loadAllUsers();
+    // Load all users after short delay
+    setTimeout(() => loadAllUsers(), 1000);
   }
 });
 
-// ================= UPDATE USER ONLINE STATUS =================
-function updateUserOnlineStatus(isOnline) {
-  if (currentUser) {
-    db.collection("users").doc(currentUser.uid).update({
-      isOnline: isOnline,
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(error => {
-      console.log("Status update error:", error);
-    });
-  }
-}
-
 // ================= LOAD ALL USERS =================
-function loadAllUsers() {
-  if (unsubscribeUsers) {
-    unsubscribeUsers();
+async function loadAllUsers() {
+  console.log("Loading all users...");
+  
+  // Check if currentUser exists
+  if (!currentUser) {
+    console.log("Waiting for user to load...");
+    return;
   }
   
-  unsubscribeUsers = db.collection("users")
-    .orderBy("lastSeen", "desc")
-    .onSnapshot(snapshot => {
-      const userList = document.getElementById("userList");
-      userList.innerHTML = "";
-      
-      let hasUsers = false;
-      
-      snapshot.forEach(doc => {
-        if (doc.id !== currentUser.uid) {
-          hasUsers = true;
-          const data = doc.data();
-          createUserButton(doc.id, data);
-        }
-      });
-      
-      if (!hasUsers) {
-        userList.innerHTML = "<p style='padding:20px; text-align:center; color:#666;'>No other users found</p>";
+  try {
+    const snapshot = await db.collection("users").get();
+    console.log("Users found:", snapshot.size);
+    
+    const userList = document.getElementById("userList");
+    userList.innerHTML = "";
+    
+    if (snapshot.empty) {
+      userList.innerHTML = "<p style='padding:20px; text-align:center; color:#666;'>No users found. Register first!</p>";
+      return;
+    }
+    
+    let hasOtherUsers = false;
+    
+    snapshot.forEach(doc => {
+      if (doc.id !== currentUser?.uid) {
+        hasOtherUsers = true;
+        const data = doc.data();
+        console.log("Displaying user:", data.email);
+        createUserButton(doc.id, data);
       }
-    }, error => {
-      console.error("Error loading users:", error);
     });
+    
+    if (!hasOtherUsers) {
+      userList.innerHTML = "<p style='padding:20px; text-align:center; color:#666;'>No other users found. Invite friends!</p>";
+    }
+    
+  } catch (error) {
+    console.error("❌ Error loading users:", error);
+    
+    if (error.code === 'permission-denied') {
+      document.getElementById("userList").innerHTML = 
+        "<p style='padding:20px; text-align:center; color:red;'>❌ Permission denied! Check Firestore Rules.</p>";
+    } else {
+      document.getElementById("userList").innerHTML = 
+        "<p style='padding:20px; text-align:center; color:red;'>Error loading users</p>";
+    }
+  }
 }
 
 // ================= CREATE USER BUTTON =================
@@ -133,74 +108,66 @@ function createUserButton(userId, userData) {
   userDiv.className = "user-item";
   userDiv.id = `user-${userId}`;
   
-  // Get initials for avatar
   const initials = userData.username 
     ? userData.username.substring(0, 2).toUpperCase() 
     : userData.email.substring(0, 2).toUpperCase();
   
-  // Online status indicator
-  const onlineStatus = userData.isOnline ? 
-    '<span style="color:#22c55e; font-size:10px;">●</span>' : 
-    '<span style="color:#94a3b8; font-size:10px;">●</span>';
-  
-  // Last seen time
-  let lastSeenText = '';
-  if (userData.lastSeen) {
-    const lastSeen = userData.lastSeen.toDate ? 
-      userData.lastSeen.toDate() : new Date(userData.lastSeen);
-    const now = new Date();
-    const diffMs = now - lastSeen;
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) {
-      lastSeenText = 'just now';
-    } else if (diffMins < 60) {
-      lastSeenText = `${diffMins} min ago`;
-    } else {
-      lastSeenText = lastSeen.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    }
-  }
+  const onlineStatus = userData.isOnline ? '🟢' : '⚪';
   
   userDiv.innerHTML = `
     <div class="user-avatar">${initials}</div>
     <div style="flex:1;">
-      <div style="font-weight:600; display:flex; align-items:center; gap:5px;">
-        ${userData.username || 'User'} 
-        ${onlineStatus}
+      <div style="font-weight:600;">
+        ${userData.username || 'User'} ${onlineStatus}
       </div>
       <div style="font-size:12px; color:#666;">${userData.email}</div>
-      ${userData.status ? `<div style="font-size:11px; color:#888;">${userData.status}</div>` : ''}
-      ${!userData.isOnline && lastSeenText ? `<div style="font-size:10px; color:#999;">Last seen: ${lastSeenText}</div>` : ''}
     </div>
-    <div style="display:flex; gap:5px;">
-      <button class="video-call-btn" onclick="event.stopPropagation(); startVideoCall('${userId}', '${userData.username || 'User'}')" style="background:none; border:none; cursor:pointer;">
-        <i class="fas fa-video" style="color:#6366f1;"></i>
-      </button>
-    </div>
+    <button class="chat-btn" style="background:#6366f1; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">
+      Chat
+    </button>
   `;
   
-  userDiv.onclick = (e) => {
-    if (!e.target.closest('button')) {
-      startChat(userId, userData);
-    }
+  userDiv.querySelector('.chat-btn').onclick = (e) => {
+    e.stopPropagation();
+    startChat(userId, userData);
   };
   
   userList.appendChild(userDiv);
 }
 
 // ================= SEARCH USER =================
-document.getElementById("searchBtn").addEventListener("click", searchUsers);
-
-// Real-time search as you type
-document.getElementById("searchEmail").addEventListener("input", (e) => {
-  if (e.target.value.trim() === "") {
-    loadAllUsers();
-  } else {
-    searchUsers();
+// Wait for DOM to load
+document.addEventListener('DOMContentLoaded', function() {
+  const searchBtn = document.getElementById("searchBtn");
+  if (searchBtn) {
+    searchBtn.addEventListener("click", searchUsers);
+  }
+  
+  const sendBtn = document.getElementById("sendBtn");
+  if (sendBtn) {
+    sendBtn.addEventListener("click", sendMessage);
+  }
+  
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", logout);
+  }
+  
+  const messageInput = document.getElementById("messageInput");
+  if (messageInput) {
+    messageInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
   }
 });
 
 async function searchUsers() {
+  // Check if currentUser exists
+  if (!currentUser) {
+    alert("Please wait, loading user data...");
+    return;
+  }
+  
   const emailInput = document.getElementById("searchEmail");
   const email = emailInput.value.trim();
 
@@ -211,15 +178,14 @@ async function searchUsers() {
 
   try {
     const snapshot = await db.collection("users")
-      .where("email", ">=", email)
-      .where("email", "<=", email + '\uf8ff')
+      .where("email", "==", email)
       .get();
 
     const userList = document.getElementById("userList");
     userList.innerHTML = "";
 
     if (snapshot.empty) {
-      userList.innerHTML = "<p style='padding:20px; text-align:center;'>No user found</p>";
+      userList.innerHTML = "<p style='padding:20px; text-align:center;'>❌ No user found with this email</p>";
       return;
     }
 
@@ -232,251 +198,163 @@ async function searchUsers() {
 
   } catch (error) {
     console.error("Search error:", error);
+    alert("Search failed: " + error.message);
   }
 }
 
 // ================= START CHAT =================
 function startChat(userId, userData) {
+  if (!currentUser) {
+    alert("Please wait, loading user data...");
+    return;
+  }
+  
   currentChatUser = userId;
   currentChatUserData = userData;
   
-  // Highlight selected user
-  document.querySelectorAll('.user-item').forEach(item => {
-    item.classList.remove('active');
-  });
-  document.getElementById(`user-${userId}`)?.classList.add('active');
-  
-  // Update chat header
-  const statusText = userData.isOnline ? '🟢 Online' : '⚫ Offline';
   document.getElementById("chatHeader").innerHTML = `
-    <div style="display:flex; flex-direction:column;">
-      <span><i class="fas fa-user"></i> ${userData.username || userData.email}</span>
-      <span style="font-size:12px; color:#666;">${statusText}</span>
+    <div>
+      <i class="fas fa-user"></i> Chatting with ${userData.username || userData.email}
     </div>
   `;
 
   loadMessages();
-  
-  // Mark messages as read when opening chat
-  markMessagesAsRead(userId);
-}
-
-// ================= MARK MESSAGES AS READ =================
-async function markMessagesAsRead(otherUserId) {
-  const chatId = [currentUser.uid, otherUserId].sort().join("_");
-  
-  try {
-    const chatDoc = await db.collection("chats").doc(chatId).get();
-    
-    if (chatDoc.exists) {
-      // Update unread count for current user to 0
-      await db.collection("chats").doc(chatId).update({
-        [`unreadCount.${currentUser.uid}`]: 0
-      });
-      
-      // Mark individual messages as read
-      const messagesSnapshot = await db.collection("chats")
-        .doc(chatId)
-        .collection("messages")
-        .where("receiverId", "==", currentUser.uid)
-        .where("status", "in", ["sent", "delivered"])
-        .get();
-      
-      const batch = db.batch();
-      messagesSnapshot.forEach(doc => {
-        batch.update(doc.ref, {
-          status: "read",
-          readAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      });
-      
-      await batch.commit();
-    }
-  } catch (error) {
-    console.error("Error marking messages as read:", error);
-  }
 }
 
 // ================= LOAD MESSAGES =================
 function loadMessages() {
-  if (!currentChatUser) return;
+  if (!currentChatUser || !currentUser) return;
 
   const chatId = [currentUser.uid, currentChatUser].sort().join("_");
+  
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML = "<p style='text-align:center;'>Loading messages...</p>";
 
   if (unsubscribeMessages) {
     unsubscribeMessages();
   }
-
-  // Check if chat document exists, if not create it
-  db.collection("chats").doc(chatId).get().then(doc => {
-    if (!doc.exists) {
-      db.collection("chats").doc(chatId).set({
-        participants: [currentUser.uid, currentChatUser],
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
-        unreadCount: {
-          [currentUser.uid]: 0,
-          [currentChatUser]: 0
-        }
-      });
-    }
-  });
 
   unsubscribeMessages = db.collection("chats")
     .doc(chatId)
     .collection("messages")
     .orderBy("createdAt")
     .onSnapshot(snapshot => {
-      const chatBox = document.getElementById("chatBox");
       chatBox.innerHTML = "";
+
+      if (snapshot.empty) {
+        chatBox.innerHTML = "<p style='text-align:center; color:#666;'>No messages yet. Say hi! 👋</p>";
+      }
 
       snapshot.forEach(doc => {
         const msg = doc.data();
         
-        // Update message status to delivered if it's for current user
-        if (msg.receiverId === currentUser.uid && msg.status === "sent") {
-          doc.ref.update({
-            status: "delivered"
-          });
-        }
-        
         const messageRow = document.createElement("div");
-        messageRow.className = `message-row ${msg.senderId === currentUser.uid ? 'sent' : 'received'}`;
+        messageRow.style.cssText = `
+          display: flex;
+          margin: 10px 0;
+          ${msg.senderId === currentUser.uid ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
+        `;
         
         const messageBubble = document.createElement("div");
-        messageBubble.className = "message-bubble";
+        messageBubble.style.cssText = `
+          padding: 10px 15px;
+          border-radius: 18px;
+          max-width: 70%;
+          ${msg.senderId === currentUser.uid 
+            ? 'background: #6366f1; color: white; border-bottom-right-radius: 4px;' 
+            : 'background: #e5e7eb; color: black; border-bottom-left-radius: 4px;'}
+        `;
+        
         messageBubble.textContent = msg.text;
         
-        // Add time and status
+        // Add time if available
         if (msg.createdAt) {
-          const time = msg.createdAt.toDate ? 
-            msg.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 
-            new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          const timeSpan = document.createElement("span");
+          timeSpan.style.cssText = "font-size: 10px; margin-left: 8px; opacity: 0.7;";
           
-          const statusSpan = document.createElement("span");
-          statusSpan.style.fontSize = "10px";
-          statusSpan.style.marginLeft = "5px";
-          statusSpan.style.opacity = "0.7";
-          
-          if (msg.senderId === currentUser.uid) {
-            let statusIcon = '';
-            if (msg.status === 'sent') statusIcon = '✓';
-            else if (msg.status === 'delivered') statusIcon = '✓✓';
-            else if (msg.status === 'read') statusIcon = '✓✓';
-            statusSpan.textContent = ` ${time} ${statusIcon}`;
+          if (msg.createdAt && msg.createdAt.toDate) {
+            timeSpan.textContent = msg.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
           } else {
-            statusSpan.textContent = ` ${time}`;
+            timeSpan.textContent = "just now";
           }
           
-          messageBubble.appendChild(statusSpan);
+          messageBubble.appendChild(timeSpan);
         }
         
         messageRow.appendChild(messageBubble);
         chatBox.appendChild(messageRow);
       });
 
-      // Auto scroll bottom
       chatBox.scrollTop = chatBox.scrollHeight;
+    }, error => {
+      console.error("Message load error:", error);
+      chatBox.innerHTML = "<p style='color:red;'>Error loading messages</p>";
     });
 }
 
 // ================= SEND MESSAGE =================
-document.getElementById("sendBtn").addEventListener("click", sendMessage);
-document.getElementById("messageInput").addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendMessage();
-});
-
 async function sendMessage() {
+  if (!currentUser) {
+    alert("Please wait, loading user data...");
+    return;
+  }
+  
+  if (!currentChatUser) {
+    alert("Please select a user first");
+    return;
+  }
+  
   const input = document.getElementById("messageInput");
   const text = input.value.trim();
 
   if (!text) return;
-  if (!currentChatUser) {
-    alert("Select a user first");
-    return;
-  }
 
   const chatId = [currentUser.uid, currentChatUser].sort().join("_");
 
   try {
-    // Add message to messages subcollection
-    const messageRef = await db.collection("chats")
+    await db.collection("chats")
       .doc(chatId)
       .collection("messages")
       .add({
         text: text,
         senderId: currentUser.uid,
         receiverId: currentChatUser,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        status: "sent",
-        type: "text"
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-
-    // Update chat document
-    await db.collection("chats").doc(chatId).update({
-      lastMessage: text,
-      lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
-      [`unreadCount.${currentChatUser}`]: firebase.firestore.FieldValue.increment(1)
-    });
 
     input.value = "";
 
   } catch (error) {
     console.error("Send error:", error);
-    alert("Failed to send message");
+    alert("Failed to send: " + error.message);
   }
 }
-
-// ================= VIDEO CALL FUNCTIONS =================
-let localStream = null;
-let peerConnection = null;
-
-async function startVideoCall(userId, username) {
-  if (!confirm(`Start video call with ${username}?`)) return;
-  
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    
-    const overlay = document.getElementById('videoOverlay');
-    overlay.style.display = 'flex';
-    
-    const localVideo = document.getElementById('localVideo');
-    localVideo.srcObject = localStream;
-    
-    alert('Video call started! (Note: Full WebRTC implementation requires a signaling server)');
-    
-  } catch (error) {
-    console.error('Error starting video call:', error);
-    alert('Could not access camera/microphone. Please check permissions.');
-  }
-}
-
-window.endCall = function() {
-  if (localStream) {
-    localStream.getTracks().forEach(track => track.stop());
-  }
-  
-  document.getElementById('videoOverlay').style.display = 'none';
-  
-  if (peerConnection) {
-    peerConnection.close();
-    peerConnection = null;
-  }
-};
 
 // ================= LOGOUT =================
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  // Update online status to false
-  updateUserOnlineStatus(false);
+async function logout() {
+  try {
+    if (currentUser) {
+      await db.collection("users").doc(currentUser.uid).update({
+        isOnline: false,
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  } catch (error) {
+    console.log("Logout status update error:", error);
+  }
   
-  // Clean up listeners
   if (unsubscribeMessages) unsubscribeMessages();
   if (unsubscribeUsers) unsubscribeUsers();
   
   auth.signOut();
-});
+}
 
 // Handle browser close/tab close
 window.addEventListener("beforeunload", () => {
-  updateUserOnlineStatus(false);
+  if (currentUser) {
+    db.collection("users").doc(currentUser.uid).update({
+      isOnline: false,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+  }
 });
