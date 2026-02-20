@@ -9,18 +9,11 @@ const firebaseConfig = {
   measurementId: "G-2RE1L7HQTZ"
 };
 
-// Initialize Firebase FIRST
+// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-
-// Initialize services SECOND
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Enable offline persistence (optional)
-db.enablePersistence()
-  .catch(err => console.log("Persistence error:", err));
-
-// Variables THIRD
 let currentUser = null;
 let currentChatUser = null;
 let currentChatUserData = null;
@@ -36,282 +29,302 @@ auth.onAuthStateChanged(async user => {
     console.log("✅ Logged in as:", user.email);
     
     try {
-      // Update user online status
+      // Update user online status in users collection
       await db.collection("users").doc(user.uid).update({
         isOnline: true,
         lastSeen: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (error) {
-      console.log("Status update error (might be new user):", error.message);
+      // First time user - create profile
+      console.log("Creating new user profile...");
+      await db.collection("users").doc(user.uid).set({
+        username: user.email.split('@')[0],
+        email: user.email,
+        isOnline: true,
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: "Hey there! I'm using Khaji Chat"
+      });
     }
     
-    // Load all users after short delay
-    setTimeout(() => loadAllUsers(), 1000);
+    // Load all users
+    loadAllUsers();
   }
 });
 
 // ================= LOAD ALL USERS =================
 async function loadAllUsers() {
-  console.log("Loading all users...");
-  
-  // Check if currentUser exists
-  if (!currentUser) {
-    console.log("Waiting for user to load...");
-    return;
-  }
-  
   try {
     const snapshot = await db.collection("users").get();
-    console.log("Users found:", snapshot.size);
-    
     const userList = document.getElementById("userList");
     userList.innerHTML = "";
     
     if (snapshot.empty) {
-      userList.innerHTML = "<p style='padding:20px; text-align:center; color:#666;'>No users found. Register first!</p>";
+      userList.innerHTML = "<p style='padding:20px; text-align:center;'>No users found. Register first!</p>";
       return;
     }
     
-    let hasOtherUsers = false;
-    
     snapshot.forEach(doc => {
       if (doc.id !== currentUser?.uid) {
-        hasOtherUsers = true;
-        const data = doc.data();
-        console.log("Displaying user:", data.email);
-        createUserButton(doc.id, data);
+        const userData = doc.data();
+        createUserElement(doc.id, userData);
       }
     });
-    
-    if (!hasOtherUsers) {
-      userList.innerHTML = "<p style='padding:20px; text-align:center; color:#666;'>No other users found. Invite friends!</p>";
-    }
-    
   } catch (error) {
-    console.error("❌ Error loading users:", error);
-    
-    if (error.code === 'permission-denied') {
-      document.getElementById("userList").innerHTML = 
-        "<p style='padding:20px; text-align:center; color:red;'>❌ Permission denied! Check Firestore Rules.</p>";
-    } else {
-      document.getElementById("userList").innerHTML = 
-        "<p style='padding:20px; text-align:center; color:red;'>Error loading users</p>";
-    }
+    console.error("Error loading users:", error);
+    document.getElementById("userList").innerHTML = "<p style='color:red;'>Error loading users</p>";
   }
 }
 
-// ================= CREATE USER BUTTON =================
-function createUserButton(userId, userData) {
+// ================= CREATE USER ELEMENT =================
+function createUserElement(userId, userData) {
   const userList = document.getElementById("userList");
   
   const userDiv = document.createElement("div");
   userDiv.className = "user-item";
   userDiv.id = `user-${userId}`;
-  
-  const initials = userData.username 
-    ? userData.username.substring(0, 2).toUpperCase() 
-    : userData.email.substring(0, 2).toUpperCase();
-  
-  const onlineStatus = userData.isOnline ? '🟢' : '⚪';
-  
-  userDiv.innerHTML = `
-    <div class="user-avatar">${initials}</div>
-    <div style="flex:1;">
-      <div style="font-weight:600;">
-        ${userData.username || 'User'} ${onlineStatus}
-      </div>
-      <div style="font-size:12px; color:#666;">${userData.email}</div>
-    </div>
-    <button class="chat-btn" style="background:#6366f1; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">
-      Chat
-    </button>
+  userDiv.style.cssText = `
+    padding: 12px 15px;
+    margin: 5px 10px;
+    background: ${userData.isOnline ? '#f0fdf4' : '#f9fafb'};
+    border-radius: 10px;
+    cursor: pointer;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s;
   `;
   
-  userDiv.querySelector('.chat-btn').onclick = (e) => {
-    e.stopPropagation();
-    startChat(userId, userData);
-  };
+  // Avatar
+  const avatar = document.createElement("div");
+  avatar.style.cssText = `
+    width: 45px;
+    height: 45px;
+    background: #6366f1;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+  `;
+  avatar.textContent = userData.username ? userData.username.charAt(0).toUpperCase() : 'U';
+  
+  // Info
+  const info = document.createElement("div");
+  info.style.flex = "1";
+  info.innerHTML = `
+    <div style="font-weight:600; display:flex; align-items:center; gap:5px;">
+      ${userData.username || 'User'}
+      <span style="color: ${userData.isOnline ? '#22c55e' : '#94a3b8'}; font-size: 12px;">
+        ${userData.isOnline ? '● Online' : '○ Offline'}
+      </span>
+    </div>
+    <div style="font-size:13px; color:#666;">${userData.email}</div>
+    ${userData.status ? `<div style="font-size:11px; color:#888;">${userData.status}</div>` : ''}
+  `;
+  
+  userDiv.appendChild(avatar);
+  userDiv.appendChild(info);
+  
+  userDiv.onclick = () => startChat(userId, userData);
   
   userList.appendChild(userDiv);
 }
 
 // ================= SEARCH USER =================
-// Wait for DOM to load
-document.addEventListener('DOMContentLoaded', function() {
-  const searchBtn = document.getElementById("searchBtn");
-  if (searchBtn) {
-    searchBtn.addEventListener("click", searchUsers);
-  }
+document.getElementById("searchBtn").addEventListener("click", async () => {
+  const email = document.getElementById("searchEmail").value.trim();
   
-  const sendBtn = document.getElementById("sendBtn");
-  if (sendBtn) {
-    sendBtn.addEventListener("click", sendMessage);
-  }
-  
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", logout);
-  }
-  
-  const messageInput = document.getElementById("messageInput");
-  if (messageInput) {
-    messageInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendMessage();
-    });
-  }
-});
-
-async function searchUsers() {
-  // Check if currentUser exists
-  if (!currentUser) {
-    alert("Please wait, loading user data...");
-    return;
-  }
-  
-  const emailInput = document.getElementById("searchEmail");
-  const email = emailInput.value.trim();
-
   if (!email) {
     loadAllUsers();
     return;
   }
-
+  
   try {
     const snapshot = await db.collection("users")
-      .where("email", "==", email)
+      .where("email", ">=", email)
+      .where("email", "<=", email + '\uf8ff')
       .get();
-
+    
     const userList = document.getElementById("userList");
     userList.innerHTML = "";
-
+    
     if (snapshot.empty) {
-      userList.innerHTML = "<p style='padding:20px; text-align:center;'>❌ No user found with this email</p>";
+      userList.innerHTML = "<p style='padding:20px;'>No user found</p>";
       return;
     }
-
+    
     snapshot.forEach(doc => {
       if (doc.id !== currentUser.uid) {
-        const data = doc.data();
-        createUserButton(doc.id, data);
+        createUserElement(doc.id, doc.data());
       }
     });
-
   } catch (error) {
     console.error("Search error:", error);
-    alert("Search failed: " + error.message);
   }
-}
+});
 
 // ================= START CHAT =================
 function startChat(userId, userData) {
-  if (!currentUser) {
-    alert("Please wait, loading user data...");
-    return;
-  }
-  
   currentChatUser = userId;
   currentChatUserData = userData;
   
+  // Highlight selected user
+  document.querySelectorAll('.user-item').forEach(el => {
+    el.style.background = '';
+  });
+  document.getElementById(`user-${userId}`).style.background = '#e0e7ff';
+  
+  // Update header
   document.getElementById("chatHeader").innerHTML = `
-    <div>
-      <i class="fas fa-user"></i> Chatting with ${userData.username || userData.email}
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div style="width:40px; height:40px; background:#6366f1; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+        ${userData.username ? userData.username.charAt(0).toUpperCase() : 'U'}
+      </div>
+      <div>
+        <div style="font-weight:600;">${userData.username || 'User'}</div>
+        <div style="font-size:12px; color:${userData.isOnline ? '#22c55e' : '#666'};">
+          ${userData.isOnline ? 'Online' : 'Offline'}
+        </div>
+      </div>
     </div>
   `;
-
+  
   loadMessages();
 }
 
-// ================= LOAD MESSAGES =================
+// ================= LOAD MESSAGES (from chats/{chatId}/messages) =================
 function loadMessages() {
-  if (!currentChatUser || !currentUser) return;
-
+  if (!currentChatUser) return;
+  
   const chatId = [currentUser.uid, currentChatUser].sort().join("_");
   
-  const chatBox = document.getElementById("chatBox");
-  chatBox.innerHTML = "<p style='text-align:center;'>Loading messages...</p>";
-
   if (unsubscribeMessages) {
     unsubscribeMessages();
   }
-
+  
+  // Create chat document if it doesn't exist
+  db.collection("chats").doc(chatId).get().then(doc => {
+    if (!doc.exists) {
+      db.collection("chats").doc(chatId).set({
+        participants: [currentUser.uid, currentChatUser],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
+        unreadCount: {
+          [currentUser.uid]: 0,
+          [currentChatUser]: 0
+        }
+      });
+    }
+  });
+  
+  // Listen to messages subcollection
   unsubscribeMessages = db.collection("chats")
     .doc(chatId)
     .collection("messages")
     .orderBy("createdAt")
     .onSnapshot(snapshot => {
+      const chatBox = document.getElementById("chatBox");
       chatBox.innerHTML = "";
-
+      
       if (snapshot.empty) {
-        chatBox.innerHTML = "<p style='text-align:center; color:#666;'>No messages yet. Say hi! 👋</p>";
+        chatBox.innerHTML = "<p style='text-align:center; color:#666; padding:20px;'>No messages yet. Say hi! 👋</p>";
+        return;
       }
-
+      
       snapshot.forEach(doc => {
         const msg = doc.data();
         
-        const messageRow = document.createElement("div");
-        messageRow.style.cssText = `
-          display: flex;
-          margin: 10px 0;
-          ${msg.senderId === currentUser.uid ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
-        `;
-        
-        const messageBubble = document.createElement("div");
-        messageBubble.style.cssText = `
-          padding: 10px 15px;
-          border-radius: 18px;
-          max-width: 70%;
-          ${msg.senderId === currentUser.uid 
-            ? 'background: #6366f1; color: white; border-bottom-right-radius: 4px;' 
-            : 'background: #e5e7eb; color: black; border-bottom-left-radius: 4px;'}
-        `;
-        
-        messageBubble.textContent = msg.text;
-        
-        // Add time if available
-        if (msg.createdAt) {
-          const timeSpan = document.createElement("span");
-          timeSpan.style.cssText = "font-size: 10px; margin-left: 8px; opacity: 0.7;";
-          
-          if (msg.createdAt && msg.createdAt.toDate) {
-            timeSpan.textContent = msg.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-          } else {
-            timeSpan.textContent = "just now";
-          }
-          
-          messageBubble.appendChild(timeSpan);
+        // Mark as delivered if received
+        if (msg.receiverId === currentUser.uid && msg.status === 'sent') {
+          doc.ref.update({
+            status: 'delivered'
+          });
         }
         
-        messageRow.appendChild(messageBubble);
-        chatBox.appendChild(messageRow);
+        const messageDiv = document.createElement("div");
+        messageDiv.style.cssText = `
+          display: flex;
+          margin: 15px 10px;
+          justify-content: ${msg.senderId === currentUser.uid ? 'flex-end' : 'flex-start'};
+        `;
+        
+        const bubble = document.createElement("div");
+        bubble.style.cssText = `
+          max-width: 70%;
+          padding: 12px 18px;
+          border-radius: 18px;
+          background: ${msg.senderId === currentUser.uid ? '#6366f1' : '#e5e7eb'};
+          color: ${msg.senderId === currentUser.uid ? 'white' : 'black'};
+          border-bottom-${msg.senderId === currentUser.uid ? 'right' : 'left'}-radius: 4px;
+          word-wrap: break-word;
+        `;
+        
+        // Message text
+        bubble.innerHTML = msg.text;
+        
+        // Time and status
+        if (msg.createdAt) {
+          const timeSpan = document.createElement("span");
+          timeSpan.style.cssText = "font-size: 10px; margin-left: 8px; opacity: 0.7; display: inline-block;";
+          
+          let timeStr = '';
+          if (msg.createdAt.toDate) {
+            timeStr = msg.createdAt.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          } else {
+            timeStr = 'just now';
+          }
+          
+          // Add status indicators for sent messages
+          if (msg.senderId === currentUser.uid) {
+            let statusIcon = '';
+            if (msg.status === 'sent') statusIcon = ' ✓';
+            else if (msg.status === 'delivered') statusIcon = ' ✓✓';
+            else if (msg.status === 'read') statusIcon = ' ✓✓';
+            timeSpan.textContent = `${timeStr}${statusIcon}`;
+          } else {
+            timeSpan.textContent = timeStr;
+          }
+          
+          bubble.appendChild(document.createElement("br"));
+          bubble.appendChild(timeSpan);
+        }
+        
+        messageDiv.appendChild(bubble);
+        chatBox.appendChild(messageDiv);
       });
-
+      
+      // Auto-scroll
       chatBox.scrollTop = chatBox.scrollHeight;
     }, error => {
       console.error("Message load error:", error);
-      chatBox.innerHTML = "<p style='color:red;'>Error loading messages</p>";
+      document.getElementById("chatBox").innerHTML = "<p style='color:red;'>Error loading messages</p>";
     });
 }
 
-// ================= SEND MESSAGE =================
+// ================= SEND MESSAGE (to chats/{chatId}/messages) =================
+document.getElementById("sendBtn").addEventListener("click", sendMessage);
+document.getElementById("messageInput").addEventListener("keypress", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
+
 async function sendMessage() {
-  if (!currentUser) {
-    alert("Please wait, loading user data...");
-    return;
-  }
+  const input = document.getElementById("messageInput");
+  const text = input.value.trim();
   
+  if (!text) return;
   if (!currentChatUser) {
     alert("Please select a user first");
     return;
   }
   
-  const input = document.getElementById("messageInput");
-  const text = input.value.trim();
-
-  if (!text) return;
-
   const chatId = [currentUser.uid, currentChatUser].sort().join("_");
-
+  
   try {
+    // Add message to messages subcollection
     await db.collection("chats")
       .doc(chatId)
       .collection("messages")
@@ -319,11 +332,20 @@ async function sendMessage() {
         text: text,
         senderId: currentUser.uid,
         receiverId: currentChatUser,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: "sent",
+        type: "text"
       });
-
+    
+    // Update chat document with last message
+    await db.collection("chats").doc(chatId).update({
+      lastMessage: text,
+      lastMessageTime: firebase.firestore.FieldValue.serverTimestamp(),
+      [`unreadCount.${currentChatUser}`]: firebase.firestore.FieldValue.increment(1)
+    });
+    
     input.value = "";
-
+    
   } catch (error) {
     console.error("Send error:", error);
     alert("Failed to send: " + error.message);
@@ -331,7 +353,7 @@ async function sendMessage() {
 }
 
 // ================= LOGOUT =================
-async function logout() {
+document.getElementById("logoutBtn").addEventListener("click", async () => {
   try {
     if (currentUser) {
       await db.collection("users").doc(currentUser.uid).update({
@@ -340,21 +362,9 @@ async function logout() {
       });
     }
   } catch (error) {
-    console.log("Logout status update error:", error);
+    console.log("Logout error:", error);
   }
   
   if (unsubscribeMessages) unsubscribeMessages();
-  if (unsubscribeUsers) unsubscribeUsers();
-  
   auth.signOut();
-}
-
-// Handle browser close/tab close
-window.addEventListener("beforeunload", () => {
-  if (currentUser) {
-    db.collection("users").doc(currentUser.uid).update({
-      isOnline: false,
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(() => {});
-  }
 });
