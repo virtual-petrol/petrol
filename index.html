@@ -13,19 +13,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
     
     <!-- Icons (Font Awesome) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <!-- Additional Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
     
     <style>
         /* Custom animations */
         @keyframes pulse {
             0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 0.8; }
         }
         .animate-pulse-custom {
             animation: pulse 2s infinite;
@@ -37,22 +33,35 @@
         .slide-in {
             animation: slideIn 0.3s ease-out;
         }
-        .typing-indicator {
-            display: flex;
-            gap: 4px;
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
         }
         .typing-dot {
             width: 8px;
             height: 8px;
             background: #3b82f6;
             border-radius: 50%;
-            animation: typingBounce 1.4s infinite;
+            display: inline-block;
+            margin: 0 2px;
+            animation: bounce 1.4s infinite;
         }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typingBounce {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-10px); }
+        
+        /* Scrollbar styling */
+        #messagesContainer::-webkit-scrollbar {
+            width: 6px;
+        }
+        #messagesContainer::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        #messagesContainer::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 3px;
+        }
+        #messagesContainer::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
         }
     </style>
 </head>
@@ -74,6 +83,9 @@
     <!-- Main Content Area -->
     <main id="main-content" class="container mx-auto px-4 py-8">
         <!-- Content will be dynamically loaded here -->
+        <div id="loading-spinner" class="flex justify-center items-center h-64">
+            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
     </main>
 </div>
 
@@ -81,31 +93,6 @@
 <div id="toast" class="fixed top-4 right-4 z-50 hidden">
     <div class="bg-gray-800 border-l-4 border-blue-500 text-white px-6 py-3 rounded-lg shadow-xl">
         <p id="toast-message"></p>
-    </div>
-</div>
-
-<!-- Call Modal -->
-<div id="callModal" class="fixed inset-0 bg-black/90 hidden z-50">
-    <div class="relative h-full flex flex-col">
-        <div class="flex-1 grid grid-cols-2 gap-4 p-4">
-            <div class="relative bg-gray-900 rounded-2xl overflow-hidden">
-                <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
-            </div>
-            <div class="relative bg-gray-800 rounded-2xl overflow-hidden">
-                <video id="localVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
-            </div>
-        </div>
-        <div class="flex justify-center gap-4 p-6">
-            <button onclick="toggleAudio()" class="w-14 h-14 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center">
-                <i id="micIcon" class="fas fa-microphone text-xl"></i>
-            </button>
-            <button onclick="toggleVideo()" class="w-14 h-14 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center">
-                <i id="videoIcon" class="fas fa-video text-xl"></i>
-            </button>
-            <button onclick="endCall()" class="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center">
-                <i class="fas fa-phone-slash text-xl"></i>
-            </button>
-        </div>
     </div>
 </div>
 
@@ -128,12 +115,16 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const rtdb = firebase.database();
 
+// Enable Firestore persistence for offline support
+db.enablePersistence().catch(err => {
+    console.log('Persistence error:', err);
+});
+
 // ==================== APP STATE ====================
 let currentUser = null;
 let currentChatUser = null;
 let messagesUnsubscribe = null;
-let peerConnection = null;
-let localStream = null;
+let usersUnsubscribe = null;
 
 // ==================== UTILITY FUNCTIONS ====================
 function showToast(message, type = 'info') {
@@ -141,15 +132,20 @@ function showToast(message, type = 'info') {
     const toastMessage = document.getElementById('toast-message');
     toastMessage.textContent = message;
     toast.classList.remove('hidden');
+    
+    // Set color based on type
+    const borderClass = type === 'error' ? 'border-red-500' : 
+                       type === 'success' ? 'border-green-500' : 'border-blue-500';
+    toast.firstChild.className = `bg-gray-800 border-l-4 ${borderClass} text-white px-6 py-3 rounded-lg shadow-xl`;
+    
     setTimeout(() => toast.classList.add('hidden'), 3000);
 }
 
-function showLoading() {
-    document.getElementById('main-content').innerHTML = `
-        <div class="flex justify-center items-center h-64">
-            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-    `;
+function showLoading(show = true) {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) {
+        spinner.style.display = show ? 'flex' : 'none';
+    }
 }
 
 // ==================== AUTH FUNCTIONS ====================
@@ -161,18 +157,18 @@ function showLoginPage() {
                 <form onsubmit="handleLogin(event)">
                     <div class="mb-4">
                         <input type="email" id="email" placeholder="Email" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white">
+                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
                     </div>
                     <div class="mb-6">
                         <input type="password" id="password" placeholder="Password" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white">
+                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
                     </div>
-                    <button type="submit" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold">
+                    <button type="submit" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:opacity-90 transition">
                         Login
                     </button>
                 </form>
                 <div class="mt-4 text-center">
-                    <button onclick="handleGoogleLogin()" class="w-full bg-gray-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2">
+                    <button onclick="handleGoogleLogin()" class="w-full bg-gray-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-600 transition">
                         <i class="fab fa-google"></i> Continue with Google
                     </button>
                 </div>
@@ -193,17 +189,17 @@ function showRegisterPage() {
                 <form onsubmit="handleRegister(event)">
                     <div class="mb-4">
                         <input type="text" id="username" placeholder="Username" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white">
+                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
                     </div>
                     <div class="mb-4">
                         <input type="email" id="email" placeholder="Email" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white">
+                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
                     </div>
                     <div class="mb-6">
                         <input type="password" id="password" placeholder="Password" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white">
+                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
                     </div>
-                    <button type="submit" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold">
+                    <button type="submit" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:opacity-90 transition">
                         Register
                     </button>
                 </form>
@@ -222,9 +218,11 @@ async function handleLogin(e) {
     const password = document.getElementById('password').value;
     
     try {
-        showLoading();
+        showLoading(true);
         await auth.signInWithEmailAndPassword(email, password);
+        showToast('Login successful!', 'success');
     } catch (error) {
+        showLoading(false);
         showToast(error.message, 'error');
     }
 }
@@ -235,8 +233,13 @@ async function handleRegister(e) {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     
+    if (!username || !email || !password) {
+        showToast('Please fill all fields', 'error');
+        return;
+    }
+    
     try {
-        showLoading();
+        showLoading(true);
         const result = await auth.createUserWithEmailAndPassword(email, password);
         
         // Create user profile in Firestore
@@ -247,18 +250,20 @@ async function handleRegister(e) {
             bio: 'Hey there! I am using Khaji',
             online: true,
             lastSeen: new Date(),
-            friends: []
+            friends: [],
+            createdAt: new Date()
         });
         
-        showToast('Account created successfully!');
+        showToast('Account created successfully!', 'success');
     } catch (error) {
+        showLoading(false);
         showToast(error.message, 'error');
     }
 }
 
 async function handleGoogleLogin() {
     try {
-        showLoading();
+        showLoading(true);
         const provider = new firebase.auth.GoogleAuthProvider();
         const result = await auth.signInWithPopup(provider);
         
@@ -273,10 +278,14 @@ async function handleGoogleLogin() {
                 bio: 'Hey there! I am using Khaji',
                 online: true,
                 lastSeen: new Date(),
-                friends: []
+                friends: [],
+                createdAt: new Date()
             });
         }
+        
+        showToast('Login successful!', 'success');
     } catch (error) {
+        showLoading(false);
         showToast(error.message, 'error');
     }
 }
@@ -290,6 +299,7 @@ async function handleLogout() {
             });
         }
         await auth.signOut();
+        showToast('Logged out successfully', 'success');
         showLoginPage();
     } catch (error) {
         showToast(error.message, 'error');
@@ -298,80 +308,115 @@ async function handleLogout() {
 
 // ==================== HOME PAGE ====================
 async function showHomePage() {
-    showLoading();
+    showLoading(true);
     
-    const usersSnapshot = await db.collection('users').get();
-    const users = usersSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(user => user.id !== currentUser.uid);
-    
-    let html = `
-        <div class="max-w-6xl mx-auto slide-in">
-            <div class="text-center mb-12">
-                <h1 class="text-4xl font-bold mb-4">Connect with People</h1>
-                <div class="relative max-w-md mx-auto">
-                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                    <input type="text" id="searchUsers" placeholder="Search users..." 
-                        class="w-full pl-12 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white"
-                        onkeyup="filterUsers()">
+    try {
+        // Get all users
+        const usersSnapshot = await db.collection('users').get();
+        
+        if (usersSnapshot.empty) {
+            document.getElementById('main-content').innerHTML = `
+                <div class="text-center py-12">
+                    <p class="text-gray-400">No users found. Share the app with friends!</p>
                 </div>
-            </div>
-            <div id="usersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    `;
-    
-    users.forEach(user => {
-        html += `
-            <div class="user-card bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700 hover:border-blue-500 transition-all" 
-                 data-name="${user.username.toLowerCase()}">
-                <div class="flex items-center gap-4">
-                    <div class="relative">
-                        <img src="${user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random`}" 
-                             class="w-16 h-16 rounded-full object-cover border-2 border-blue-500">
-                        <span class="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-gray-800 ${user.online ? 'bg-green-500' : 'bg-gray-500'}"></span>
-                    </div>
-                    <div class="flex-1">
-                        <h3 class="font-semibold">${user.username}</h3>
-                        <p class="text-sm text-gray-400">${user.bio || 'Hey there!'}</p>
+            `;
+            showLoading(false);
+            return;
+        }
+        
+        const users = usersSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(user => user.id !== currentUser?.uid);
+        
+        let html = `
+            <div class="max-w-6xl mx-auto slide-in">
+                <div class="text-center mb-12">
+                    <h1 class="text-4xl font-bold mb-4">Connect with People</h1>
+                    <p class="text-gray-400 mb-6">Found ${users.length} user${users.length !== 1 ? 's' : ''}</p>
+                    <div class="relative max-w-md mx-auto">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="searchUsers" placeholder="Search users..." 
+                            class="w-full pl-12 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
+                            onkeyup="filterUsers()">
                     </div>
                 </div>
-                <div class="mt-4 flex justify-end gap-2">
-                    <button onclick="openChat('${user.id}', '${user.username}')" 
-                        class="p-2 bg-blue-500/20 text-blue-500 rounded-full hover:bg-blue-500 hover:text-white">
-                        <i class="fas fa-comment"></i>
-                    </button>
-                    <button onclick="startCall('${user.id}', 'audio')" 
-                        class="p-2 bg-green-500/20 text-green-500 rounded-full hover:bg-green-500 hover:text-white">
-                        <i class="fas fa-phone"></i>
-                    </button>
-                    <button onclick="startCall('${user.id}', 'video')" 
-                        class="p-2 bg-purple-500/20 text-purple-500 rounded-full hover:bg-purple-500 hover:text-white">
-                        <i class="fas fa-video"></i>
-                    </button>
-                </div>
+                <div id="usersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        `;
+        
+        if (users.length === 0) {
+            html += '<p class="col-span-3 text-center text-gray-400">No other users found</p>';
+        } else {
+            users.forEach(user => {
+                html += `
+                    <div class="user-card bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700 hover:border-blue-500 transition-all" 
+                         data-name="${(user.username || '').toLowerCase()}">
+                        <div class="flex items-center gap-4">
+                            <div class="relative">
+                                <img src="${user.avatar || `https://ui-avatars.com/api/?name=${user.username || 'User'}&background=random`}" 
+                                     class="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
+                                     onerror="this.src='https://ui-avatars.com/api/?name=User&background=random'">
+                                <span class="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-gray-800 ${user.online ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}"></span>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold">${user.username || 'Anonymous'}</h3>
+                                <p class="text-sm text-gray-400">${user.bio || 'Hey there!'}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button onclick="openChat('${user.id}', '${user.username || 'User'}')" 
+                                class="p-2 bg-blue-500/20 text-blue-500 rounded-full hover:bg-blue-500 hover:text-white transition">
+                                <i class="fas fa-comment"></i>
+                            </button>
+                            <button onclick="showToast('Video call feature coming soon!')" 
+                                class="p-2 bg-green-500/20 text-green-500 rounded-full hover:bg-green-500 hover:text-white transition">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                            <button onclick="showToast('Video call feature coming soon!')" 
+                                class="p-2 bg-purple-500/20 text-purple-500 rounded-full hover:bg-purple-500 hover:text-white transition">
+                                <i class="fas fa-video"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += `</div></div>`;
+        document.getElementById('main-content').innerHTML = html;
+        showLoading(false);
+        
+    } catch (error) {
+        console.error('Error loading users:', error);
+        document.getElementById('main-content').innerHTML = `
+            <div class="text-center py-12">
+                <p class="text-red-400">Error loading users. Please refresh the page.</p>
+                <button onclick="showHomePage()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Try Again
+                </button>
             </div>
         `;
-    });
-    
-    html += `</div></div>`;
-    document.getElementById('main-content').innerHTML = html;
+        showLoading(false);
+        showToast('Error loading users: ' + error.message, 'error');
+    }
 }
 
 function filterUsers() {
-    const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
+    const searchTerm = document.getElementById('searchUsers')?.value.toLowerCase() || '';
     const cards = document.querySelectorAll('.user-card');
     
     cards.forEach(card => {
-        const name = card.dataset.name;
-        if (name.includes(searchTerm)) {
-            card.style.display = 'block';
-        } else {
-            card.style.display = 'none';
-        }
+        const name = card.dataset.name || '';
+        card.style.display = name.includes(searchTerm) ? 'block' : 'none';
     });
 }
 
 // ==================== CHAT FUNCTIONS ====================
 async function openChat(userId, username) {
+    if (!currentUser) {
+        showToast('Please login first', 'error');
+        return;
+    }
+    
     currentChatUser = { id: userId, name: username };
     
     // Unsubscribe from previous messages
@@ -387,12 +432,16 @@ async function openChat(userId, username) {
             <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700 h-full flex flex-col">
                 <!-- Chat Header -->
                 <div class="p-4 border-b border-gray-700 flex items-center gap-3">
-                    <button onclick="showHomePage()" class="text-gray-400 hover:text-white">
+                    <button onclick="showHomePage()" class="text-gray-400 hover:text-white transition">
                         <i class="fas fa-arrow-left text-xl"></i>
                     </button>
                     <div>
                         <h3 class="font-semibold">${username}</h3>
-                        <p id="typingIndicator" class="text-xs text-gray-400 hidden">Typing...</p>
+                        <div id="typingIndicator" class="hidden">
+                            <span class="typing-dot"></span>
+                            <span class="typing-dot"></span>
+                            <span class="typing-dot"></span>
+                        </div>
                     </div>
                 </div>
                 
@@ -403,9 +452,9 @@ async function openChat(userId, username) {
                 <div class="p-4 border-t border-gray-700">
                     <form onsubmit="sendMessage(event)" class="flex gap-2">
                         <input type="text" id="messageInput" placeholder="Type a message..." 
-                            class="flex-1 px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-xl text-white"
+                            class="flex-1 px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500"
                             onkeyup="handleTyping()">
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </form>
@@ -419,13 +468,19 @@ async function openChat(userId, username) {
     messagesUnsubscribe = messagesRef.onSnapshot((snapshot) => {
         const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         displayMessages(messages);
+    }, (error) => {
+        console.error('Error loading messages:', error);
+        showToast('Error loading messages', 'error');
     });
     
     // Listen for typing indicator
     const typingRef = rtdb.ref(`typing/${chatId}/${userId}`);
     typingRef.on('value', (snapshot) => {
         const typing = snapshot.val();
-        document.getElementById('typingIndicator').classList.toggle('hidden', !typing);
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) {
+            indicator.classList.toggle('hidden', !typing);
+        }
     });
 }
 
@@ -435,8 +490,8 @@ function displayMessages(messages) {
     
     let html = '';
     messages.forEach(msg => {
-        const isMe = msg.senderId === currentUser.uid;
-        const time = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString() : '';
+        const isMe = msg.senderId === currentUser?.uid;
+        const time = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
         
         html += `
             <div class="flex ${isMe ? 'justify-end' : 'justify-start'} slide-in">
@@ -457,28 +512,33 @@ async function sendMessage(e) {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     
-    if (!text) return;
+    if (!text || !currentChatUser) return;
     
     const chatId = [currentUser.uid, currentChatUser.id].sort().join('_');
     
-    await db.collection('chats').doc(chatId).collection('messages').add({
-        text: text,
-        senderId: currentUser.uid,
-        receiverId: currentChatUser.id,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        read: false
-    });
-    
-    input.value = '';
-    
-    // Reset typing indicator
-    const typingRef = rtdb.ref(`typing/${chatId}/${currentUser.uid}`);
-    await typingRef.set(false);
+    try {
+        await db.collection('chats').doc(chatId).collection('messages').add({
+            text: text,
+            senderId: currentUser.uid,
+            receiverId: currentChatUser.id,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            read: false
+        });
+        
+        input.value = '';
+        
+        // Reset typing indicator
+        const typingRef = rtdb.ref(`typing/${chatId}/${currentUser.uid}`);
+        await typingRef.set(false);
+        
+    } catch (error) {
+        showToast('Failed to send message', 'error');
+    }
 }
 
 let typingTimeout;
 function handleTyping() {
-    if (!currentChatUser) return;
+    if (!currentChatUser || !currentUser) return;
     
     const chatId = [currentUser.uid, currentChatUser.id].sort().join('_');
     const typingRef = rtdb.ref(`typing/${chatId}/${currentUser.uid}`);
@@ -491,116 +551,44 @@ function handleTyping() {
     }, 2000);
 }
 
-// ==================== CALL FUNCTIONS ====================
-async function startCall(userId, type) {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-            video: type === 'video',
-            audio: true
-        });
-        
-        document.getElementById('localVideo').srcObject = localStream;
-        document.getElementById('callModal').classList.remove('hidden');
-        
-        // Initialize WebRTC peer connection
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }
-            ]
-        };
-        
-        peerConnection = new SimplePeer({
-            initiator: true,
-            stream: localStream,
-            config: configuration
-        });
-        
-        peerConnection.on('signal', (data) => {
-            // Send signaling data to other user via Firebase
-            const callRef = rtdb.ref(`calls/${userId}`);
-            callRef.set({
-                signal: data,
-                caller: currentUser.uid,
-                type: type
-            });
-        });
-        
-        peerConnection.on('stream', (stream) => {
-            document.getElementById('remoteVideo').srcObject = stream;
-        });
-        
-        // Listen for answer
-        rtdb.ref(`calls/${userId}/answer`).on('value', (snapshot) => {
-            if (snapshot.exists()) {
-                peerConnection.signal(snapshot.val());
-            }
-        });
-        
-    } catch (error) {
-        showToast('Failed to access camera/microphone');
-    }
-}
-
-function toggleAudio() {
-    if (localStream) {
-        const audioTrack = localStream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-        document.getElementById('micIcon').className = audioTrack.enabled ? 'fas fa-microphone' : 'fas fa-microphone-slash';
-    }
-}
-
-function toggleVideo() {
-    if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (videoTrack) {
-            videoTrack.enabled = !videoTrack.enabled;
-            document.getElementById('videoIcon').className = videoTrack.enabled ? 'fas fa-video' : 'fas fa-video-slash';
-        }
-    }
-}
-
-function endCall() {
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
-    if (peerConnection) {
-        peerConnection.destroy();
-    }
-    document.getElementById('callModal').classList.add('hidden');
-}
-
 // ==================== AUTH STATE LISTENER ====================
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentUser = user;
         
-        // Update online status
-        await db.collection('users').doc(user.uid).update({
-            online: true,
-            lastSeen: new Date()
-        });
-        
-        // Update navigation
-        document.getElementById('nav-buttons').innerHTML = `
-            <button onclick="showHomePage()" class="px-4 py-2 text-gray-300 hover:text-white">
-                <i class="fas fa-home"></i> Home
-            </button>
-            <button onclick="handleLogout()" class="px-4 py-2 bg-red-600/20 text-red-500 rounded-lg hover:bg-red-600 hover:text-white">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </button>
-        `;
-        
-        // Show home page
-        showHomePage();
+        try {
+            // Update online status
+            await db.collection('users').doc(user.uid).update({
+                online: true,
+                lastSeen: new Date()
+            });
+            
+            // Update navigation
+            document.getElementById('nav-buttons').innerHTML = `
+                <button onclick="showHomePage()" class="px-4 py-2 text-gray-300 hover:text-white transition">
+                    <i class="fas fa-home"></i> Home
+                </button>
+                <button onclick="handleLogout()" class="px-4 py-2 bg-red-600/20 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            `;
+            
+            // Show home page
+            await showHomePage();
+            
+        } catch (error) {
+            console.error('Error updating user status:', error);
+            showToast('Error loading profile', 'error');
+        }
     } else {
         currentUser = null;
         showLoginPage();
         
         document.getElementById('nav-buttons').innerHTML = `
-            <button onclick="showLoginPage()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button onclick="showLoginPage()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                 <i class="fas fa-sign-in-alt"></i> Login
             </button>
-            <button onclick="showRegisterPage()" class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600">
+            <button onclick="showRegisterPage()" class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition">
                 <i class="fas fa-user-plus"></i> Register
             </button>
         `;
@@ -613,7 +601,15 @@ window.addEventListener('beforeunload', () => {
         db.collection('users').doc(currentUser.uid).update({
             online: false,
             lastSeen: new Date()
-        });
+        }).catch(console.error);
+    }
+});
+
+// Handle initial load
+document.addEventListener('DOMContentLoaded', () => {
+    // Check if user is already logged in
+    if (!auth.currentUser) {
+        showLoginPage();
     }
 });
 </script>
