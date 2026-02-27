@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
-    <!-- Favicon for Web Tab -->
     <link rel="icon" type="image/png" href="Khaji.png">
-    
     <title>ConnectChat</title>
     
     <!-- Firebase SDK -->
@@ -14,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -42,28 +40,35 @@
             .container { height: calc(100vh - 40px); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
         }
 
+        /* Toast Notification System */
+        .toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .toast {
+            background: #333; color: white; padding: 12px 20px;
+            border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 14px; opacity: 0; transform: translateX(100%);
+            transition: all 0.3s ease; display: flex; align-items: center; gap: 10px;
+            max-width: 300px;
+        }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.error { background: #ff4757; }
+        .toast.success { background: #2ed573; }
+        .toast.info { background: #667eea; }
+
         /* Auth Section */
         .auth-section { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; }
         .auth-section h1 { color: white; margin-bottom: 30px; }
-        
-        /* Logo Style */
-        .auth-logo {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-bottom: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            background: white;
-        }
-
+        .auth-logo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); background: white; }
         .auth-form { width: 100%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
         .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
         .auth-tab { flex: 1; padding: 10px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; }
         .auth-tab.active { color: #667eea; border-bottom: 2px solid #667eea; margin-bottom: -2px; }
         .input-group { margin-bottom: 15px; }
         .input-group input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
-        .auth-btn { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .auth-btn { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+        .auth-btn:active { opacity: 0.8; }
 
         /* App Layout */
         .app-section { display: none; height: 100%; width: 100%; }
@@ -89,18 +94,11 @@
         .user-status { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; margin-left: auto; }
         .user-status.offline { background: #ccc; }
         
-        /* Unread Message Badge */
+        /* Unread Badge */
         .unread-badge {
-            background: #ff4757;
-            color: white;
-            border-radius: 12px;
-            padding: 2px 8px;
-            font-size: 10px;
-            font-weight: bold;
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
+            background: #ff4757; color: white; border-radius: 12px;
+            padding: 2px 8px; font-size: 10px; font-weight: bold;
+            position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
         }
         .user-item.has-unread h4 { font-weight: 800; color: #333; }
         .user-item.has-unread p { font-weight: 600; color: #444; }
@@ -159,12 +157,13 @@
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
         .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; align-items: center; position: relative; }
         
-        /* Call Status Overlay */
         .call-status-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 10; color: white;
+            transition: opacity 0.3s;
         }
+        .call-status-overlay.hidden { opacity: 0; pointer-events: none; }
         .call-status-overlay h2 { margin-bottom: 10px; }
         .call-status-overlay p { opacity: 0.8; }
 
@@ -172,7 +171,6 @@
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
         .video-label { position: absolute; bottom: 5px; left: 5px; color: white; font-size: 12px; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 10px; }
         
-        /* Call Controls */
         .call-controls { 
             padding: 15px; display: flex; justify-content: center; gap: 20px; 
             background: rgba(0,0,0,0.8); position: absolute; bottom: 0; left: 0; width: 100%; 
@@ -195,7 +193,6 @@
             .back-btn { display: block; }
             .call-btn { padding: 8px; }
             
-            /* Video Grid on Mobile */
             .video-grid { grid-template-columns: 1fr; padding: 0; }
             .video-box { border-radius: 0; }
             .video-box#localVideoBox { 
@@ -208,8 +205,13 @@
 </head>
 <body>
     <!-- Audio Elements -->
+    <!-- Sounds -->
     <audio id="msgSound" src="https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3" preload="auto"></audio>
+    <audio id="sentSound" src="https://cdn.freesound.org/previews/411/411411_5121236-lq.mp3" preload="auto"></audio>
     <audio id="ringSound" src="https://cdn.freesound.org/previews/411/411089_5121236-lq.mp3" preload="auto" loop></audio>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
 
     <div class="container">
         <!-- Auth -->
@@ -334,8 +336,7 @@
     <!-- Video Call UI -->
     <div class="video-modal" id="callModal">
         <div class="video-grid">
-            <!-- Status Overlay -->
-            <div id="callStatusOverlay" class="call-status-overlay" style="display:none;">
+            <div id="callStatusOverlay" class="call-status-overlay">
                 <h2 id="overlayTitle">Calling...</h2>
                 <p id="overlayStatus">Ringing</p>
             </div>
@@ -402,16 +403,79 @@
         let callStartTime = null;
         let callStatusListener = null;
         
-        // Notification Listener Tracking (FIX)
-        let msgListeners = {}; // Map uid -> firebase ref
+        // Notification Listener
+        let msgListeners = {}; 
 
-        // Auth Logic
+        // ----------------- UTILITY FUNCTIONS ----------------- //
+
+        // 1. Toast Notification System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = message;
+            container.appendChild(toast);
+
+            // Trigger reflow
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 2. Sound Player with Interaction Unlock
+        function playSound(type) {
+            try {
+                let audio;
+                if(type === 'message') audio = document.getElementById('msgSound');
+                else if(type === 'sent') audio = document.getElementById('sentSound');
+                else if(type === 'ring') audio = document.getElementById('ringSound');
+                
+                if (audio) {
+                    // Reset time and play
+                    audio.currentTime = 0;
+                    audio.play().catch(e => console.log("Audio play failed (user interaction needed):", e));
+                }
+            } catch(e) { console.log(e); }
+        }
+        
+        function stopSound() { 
+            try {
+                const audio = document.getElementById('ringSound');
+                audio.pause(); 
+                audio.currentTime = 0; 
+            } catch(e){} 
+        }
+
+        // 3. Browser Notification
+        function notifyUser(title, body) {
+            if (!("Notification" in window)) return;
+            if (Notification.permission === "granted") {
+                new Notification(title, { body: body, icon: 'Khaji.png' });
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        new Notification(title, { body: body, icon: 'Khaji.png' });
+                    }
+                });
+            }
+        }
+
+        // ----------------- AUTH LOGIC ----------------- //
+
         auth.onAuthStateChanged(async user => {
             if(user) {
                 me = { uid: user.uid, name: user.displayName || "User", email: user.email };
                 await db.ref('users/'+me.uid).update({ name: me.name, email: me.email, online: true });
                 db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
                 db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+                
+                // Ask for notification permission once logged in
+                if (Notification.permission === 'default') Notification.requestPermission();
+
                 showApp();
                 listenRequests();
                 listenCalls();
@@ -430,20 +494,31 @@
         }
 
         async function login() {
-            try { await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value); }
-            catch(e) { alert(e.message); }
+            try { 
+                await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value); 
+            } catch(e) { 
+                let msg = e.message;
+                if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-login') msg = "Incorrect password. Please try again.";
+                if(e.code === 'auth/user-not-found') msg = "User not found.";
+                showToast(msg, 'error');
+            }
         }
+        
         async function register() {
             try {
                 const name = document.getElementById('regName').value || "User";
                 const cred = await auth.createUserWithEmailAndPassword(document.getElementById('regEmail').value, document.getElementById('regPass').value);
                 await cred.user.updateProfile({ displayName: name });
                 await db.ref('users/'+cred.user.uid).set({ name, email: cred.user.email, online: true, bio: '', status: 'Hey there!' });
-            } catch(e) { alert(e.message); }
+            } catch(e) { 
+                showToast(e.message, 'error'); 
+            }
         }
+        
         function logout() { auth.signOut(); }
 
-        // App Logic
+        // ----------------- APP LOGIC ----------------- //
+
         function showApp() {
             document.getElementById('authSection').style.display = 'none';
             document.getElementById('appSection').style.display = 'block';
@@ -462,6 +537,7 @@
                 document.getElementById('editStatus').value = d.status || '';
             }
         }
+        
         async function saveProfile() {
             const name = document.getElementById('editName').value;
             const bio = document.getElementById('editBio').value;
@@ -472,8 +548,9 @@
             document.getElementById('myName').innerText = name;
             document.getElementById('myAvatar').innerText = name.charAt(0);
             closeModal('profileModal');
-            alert('Profile updated');
+            showToast('Profile updated!', 'success');
         }
+        
         async function toggleStatus() {
             const online = document.getElementById('onlineCheck').checked;
             await db.ref('users/'+me.uid).update({ online, lastSeen: online ? null : firebase.database.ServerValue.TIMESTAMP });
@@ -490,39 +567,31 @@
 
         // --- FIXED Notification Logic ---
         function setupGlobalListeners(friendIds) {
-            // 1. Cleanup old listeners to prevent duplicates
-            Object.keys(msgListeners).forEach(key => {
-                msgListeners[key].off();
-            });
+            // 1. Cleanup old listeners
+            Object.keys(msgListeners).forEach(key => msgListeners[key].off());
             msgListeners = {};
 
             friendIds.forEach(uid => {
                 const cid = [me.uid, uid].sort().join('_');
                 const ref = db.ref('messages/'+cid).orderByChild('timestamp').limitToLast(1);
                 
-                // Store reference
                 msgListeners[uid] = ref;
-
-                // 2. Use a flag to ignore the initial load
                 let isFirstEvent = true;
 
                 ref.on('child_added', snap => {
-                    if (isFirstEvent) {
-                        isFirstEvent = false;
-                        return; // Skip the initial data load
-                    }
+                    if (isFirstEvent) { isFirstEvent = false; return; }
 
                     const msg = snap.val();
                     
-                    // Logic: If message is not from me AND chat is not currently open
+                    // If message is not from me
                     if(msg.sender !== me.uid) {
+                        // If chat is NOT currently open
                         if(chatId !== cid) {
-                            // Play Sound
                             playSound('message');
-                            // Update Unread Count
+                            notifyUser("New Message", `From: ${msg.senderName || 'User'}`);
+                            
                             if(!unreadCounts[uid]) unreadCounts[uid] = 0;
                             unreadCounts[uid]++;
-                            // Refresh Sidebar if on friends tab
                             if(currentTab === 'friends') loadFriends();
                         }
                     }
@@ -539,9 +608,7 @@
                 if(f[me.uid]) ids.push(Object.keys(f).find(x => x !== me.uid));
             });
             
-            // Setup listeners (function handles cleanup internally)
             setupGlobalListeners(ids);
-            
             renderUsers(ids, 'friends');
         }
 
@@ -633,16 +700,18 @@
 
         async function addFriend(toUid) {
             await db.ref('friendRequests').push({ from: me.uid, to: toUid, status: 'pending' });
-            alert('Request sent');
+            showToast('Request sent!', 'success');
             loadSearch();
         }
+        
         async function acceptReq(uid, key) {
             const fid = [me.uid, uid].sort().join('_');
             await db.ref('friendRequests/'+key).remove();
             await db.ref('friendships/'+fid).set({ [me.uid]: {status:'accepted'}, [uid]: {status:'accepted'} });
-            alert('Friend added');
+            showToast('Friend added!', 'success');
             loadRequests();
         }
+        
         async function rejectReq(key) {
             await db.ref('friendRequests/'+key).remove();
             loadRequests();
@@ -659,15 +728,12 @@
             });
         }
 
-        let lastMsgTimestamp = 0; 
-
         async function openChat(uid) {
             const uSnap = await db.ref('users/'+uid).once('value');
             friend = { uid, ...uSnap.val() };
             chatId = [me.uid, friend.uid].sort().join('_');
             
-            // Clear unread count logic
-            unreadCounts[uid] = 0;
+            unreadCounts[uid] = 0; // Clear count
             
             document.getElementById('chatAvatar').innerText = (friend.name||'U').charAt(0);
             document.getElementById('chatName').innerText = friend.name;
@@ -681,11 +747,10 @@
             if(window.innerWidth <= 768) document.getElementById('appContainer').classList.add('chat-open');
             
             document.getElementById('msgBox').innerHTML = '';
-            lastMsgTimestamp = Date.now(); 
             
             loadMessages();
             listenTyping();
-            loadFriends(); // Refresh sidebar to remove bold/badge
+            loadFriends(); // Refresh sidebar
         }
 
         function goBack() {
@@ -699,6 +764,7 @@
                 const msg = snap.val();
                 const msgId = snap.key;
                 
+                // Mark as seen logic
                 if(msg.sender !== me.uid && msg.status !== 'seen') {
                     db.ref('messages/'+chatId+'/'+msgId).update({status: 'seen'});
                 }
@@ -765,8 +831,10 @@
             db.ref('typing/'+chatId+'/'+me.uid).remove();
             
             await db.ref('messages/'+chatId).push({
-                sender: me.uid, text, timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent'
+                sender: me.uid, senderName: me.name, text, timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent'
             });
+            
+            playSound('sent'); // Play sound when sending
             document.getElementById('msgInput').value = '';
         }
 
@@ -791,7 +859,7 @@
             const file = e.target.files[0];
             if(!file || !chatId) return;
             try {
-                alert('Uploading image...');
+                showToast('Uploading image...', 'info');
                 const path = `chat_images/${chatId}/${Date.now()}_${file.name}`;
                 const ref = storage.ref(path);
                 await ref.put(file);
@@ -799,10 +867,11 @@
                 await db.ref('messages/'+chatId).push({
                     sender: me.uid, image: url, text: '', timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent'
                 });
-                alert('Image sent!');
+                playSound('sent');
+                showToast('Image sent!', 'success');
             } catch(err) {
                 console.error(err);
-                alert('Image upload failed: ' + err.message);
+                showToast('Image upload failed: ' + err.message, 'error');
             }
             e.target.value = '';
         }
@@ -816,6 +885,7 @@
             deleteTarget = id;
             openModal('deleteModal');
         }
+        
         async function confirmDelete() {
             if(!deleteTarget) return;
             await db.ref('messages/'+chatId+'/'+deleteTarget).update({ deleted: true, text: '', image: '' });
@@ -841,11 +911,15 @@
             const statusText = document.getElementById('overlayStatus');
 
             if (status === 'calling') {
-                overlay.style.display = 'flex';
+                overlay.className = "call-status-overlay"; // show
                 title.innerText = "Calling " + friend.name;
                 statusText.innerText = "Ringing...";
             } else if (status === 'connected') {
-                overlay.style.display = 'none';
+                overlay.className = "call-status-overlay hidden"; // hide
+            } else if (status === 'ended') {
+                overlay.className = "call-status-overlay"; // show
+                title.innerText = "Call Ended";
+                statusText.innerText = text || "Call duration: 0m 0s";
             }
         }
 
@@ -884,12 +958,13 @@
                         await pc.setRemoteDescription(new RTCSessionDescription(data));
                     }
                 });
+                
                 db.ref(`calls/${callId}/calleeCandidates`).on('child_added', async (snapshot) => {
                     if(snapshot.val()) await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
                 });
 
             } catch(err) {
-                alert("Could not start call: " + err.message);
+                showToast("Could not start call: " + err.message, 'error');
                 endCall(true); 
             }
         }
@@ -951,7 +1026,7 @@
                 listenForCallStatus();
 
             } catch(err) {
-                alert("Could not answer call: " + err.message);
+                showToast("Could not answer call: " + err.message, 'error');
                 endCall(true);
             }
         }
@@ -980,9 +1055,14 @@
                 const diff = Math.floor((Date.now() - callStartTime) / 1000);
                 const m = Math.floor(diff / 60);
                 const s = diff % 60;
-                durationStr = `Duration: ${m} min ${s} sec`;
-            } else {
-                durationStr = "Call ended";
+                durationStr = `${m}m ${s}s`;
+            }
+
+            // Show Call Ended UI briefly if not remote end
+            if(!isRemoteEnd && callId) {
+                setCallUI('ended', durationStr);
+                await db.ref('calls/'+callId).update({status: 'ended'});
+                await new Promise(r => setTimeout(r, 1500)); // Wait 1.5s to show "Call Ended"
             }
 
             closeModal('callModal');
@@ -992,16 +1072,10 @@
             if(pc) { pc.close(); pc = null; }
             if(myStream) { myStream.getTracks().forEach(t => t.stop()); myStream = null; }
             
-            if(!isRemoteEnd && callId) {
-                await db.ref('calls/'+callId).update({status: 'ended'});
-            }
-            
             if(callStatusListener) db.ref('calls/'+callId).off('value', callStatusListener);
             
             callStartTime = null;
             callId = null;
-            
-            if(!isRemoteEnd) alert(durationStr);
         }
 
         async function rejectCall() {
@@ -1017,27 +1091,6 @@
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
         
-        function playSound(type) {
-            try {
-                if(type === 'message') {
-                    const audio = document.getElementById('msgSound');
-                    audio.currentTime = 0;
-                    audio.play().catch(e => {});
-                }
-                if(type === 'ring') {
-                    const audio = document.getElementById('ringSound');
-                    audio.currentTime = 0;
-                    audio.play().catch(e => {});
-                }
-            } catch(e) {}
-        }
-        function stopSound() { 
-            try {
-                const audio = document.getElementById('ringSound');
-                audio.pause(); 
-                audio.currentTime = 0; 
-            } catch(e){} 
-        }
     </script>
 </body>
 </html>
