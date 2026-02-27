@@ -409,6 +409,7 @@
         let deleteTarget = null;
         let typingTimer = null;
         let unreadCounts = {}; 
+        let appStartTime = Date.now(); // Used to filter old messages
 
         // WebRTC State
         let pc = null; 
@@ -422,7 +423,6 @@
         
         // Listener Management
         let msgListeners = {}; 
-        let loadedMessages = {}; // To track loaded messages and avoid duplicates
 
         // ----------------- UTILITY FUNCTIONS ----------------- //
 
@@ -478,13 +478,17 @@
             }
         }
 
-        // Unlock Audio on first interaction
-        document.body.addEventListener('click', () => {
-           // Create empty audio context to unlock
-           const silentAudio = document.createElement('audio');
-           silentAudio.setAttribute('src', 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-           silentAudio.play().catch(()=>{});
-        }, { once: true });
+        // Unlock Audio on first interaction (Required for Mobile)
+        function unlockAudio() {
+            document.body.removeEventListener('click', unlockAudio);
+            document.body.removeEventListener('touchstart', unlockAudio);
+            // Play and pause silent audio to unlock context
+            const silentAudio = document.getElementById('msgSound');
+            silentAudio.play().then(() => silentAudio.pause()).catch(() => {});
+        }
+        document.body.addEventListener('click', unlockAudio);
+        document.body.addEventListener('touchstart', unlockAudio);
+
 
         // ----------------- AUTH LOGIC ----------------- //
 
@@ -589,7 +593,6 @@
             // Cleanup old
             Object.keys(msgListeners).forEach(key => msgListeners[key].off());
             msgListeners = {};
-            loadedMessages = {}; // Reset tracking
 
             friendIds.forEach(uid => {
                 const cid = [me.uid, uid].sort().join('_');
@@ -597,44 +600,42 @@
                 
                 msgListeners[uid] = ref;
 
-                // We use child_added but we need to ignore the initial load burst
-                let initialLoadDone = false;
-                
-                // Query last message key to set a marker
-                ref.orderByKey().limitToLast(1).once('value', snap => {
-                    let lastKey = null;
-                    snap.forEach(child => lastKey = child.key);
+                // Listen for new children
+                ref.on('child_added', msgSnap => {
+                    const msg = msgSnap.val();
                     
-                    // Now listen for all children
-                    ref.on('child_added', msgSnap => {
-                        const msg = msgSnap.val();
-                        const key = msgSnap.key;
-
-                        // Logic: 
-                        // 1. If this key is the lastKey we fetched, it means we've reached the end of current history.
-                        // 2. Any message AFTER this key is a NEW message.
+                    // FILTER: Only process if message is NEW (timestamp > app start time)
+                    // Note: Firebase timestamps might be slightly different from local Date.now()
+                    // but this is the most reliable way to ignore initial history burst.
+                    
+                    if (msg.sender !== me.uid) {
+                        // Check if message is new (roughly within last 10 seconds or after app start)
+                        const msgTime = msg.timestamp || 0;
                         
-                        if (key === lastKey) {
-                            initialLoadDone = true;
-                            // Don't return, process this one too, but don't notify
-                        }
-
-                        // If sender is NOT me
-                        if(msg.sender !== me.uid) {
-                            // If this is a NEW message (after initial load)
-                            if (initialLoadDone) {
-                                // If chat is not open OR chat is open but not this one
-                                if(chatId !== cid) {
-                                    playSound('message');
-                                    notifyUser("New Message", `From: ${msg.senderName || 'User'}`, 'Khaji.png');
-                                    
-                                    if(!unreadCounts[uid]) unreadCounts[uid] = 0;
-                                    unreadCounts[uid]++;
-                                    if(currentTab === 'friends') loadFriends();
-                                }
+                        // Logic: If chat is not open
+                        if(chatId !== cid) {
+                            // If message is recent (newer than app start or recent offset)
+                            if (msgTime > (appStartTime - 5000)) { 
+                               // Play sound only once per message logic is handled by 'child_added' naturally
+                               // But we must ensure we don't play for history.
+                               // However, child_added fires for history. 
+                               // We use a hybrid approach: 
+                               // Only play sound if timestamp is VERY recent (last 2 seconds).
+                               // This handles the "load old messages" vs "new message" perfectly.
+                               
+                               const now = Date.now();
+                               const diff = Math.abs(now - msgTime);
+                               
+                               if (diff < 3000) { // If message happened within last 3 seconds
+                                   playSound('message');
+                                   notifyUser("New Message", `From: ${msg.senderName || 'User'}`, 'Khaji.png');
+                                   if(!unreadCounts[uid]) unreadCounts[uid] = 0;
+                                   unreadCounts[uid]++;
+                                   if(currentTab === 'friends') loadFriends();
+                               }
                             }
                         }
-                    });
+                    }
                 });
             });
         }
@@ -1009,10 +1010,23 @@
             }
         }
 
+        // FIX: Continuous Ringing Logic
         function listenCalls() {
             db.ref('calls').orderByChild('callee').equalTo(me.uid).on('child_added', async snap => {
                 const call = snap.val();
+                // Only ring if status is 'ringing'
                 if(call.status === 'ringing') {
+                    
+                    // FIX: Check if call is too old (older than 45 seconds)
+                    const callTime = call.timestamp || 0;
+                    const age = Date.now() - callTime;
+                    
+                    if (age > 45000) {
+                        // Call is too old, clean it up
+                        db.ref('calls/' + snap.key).remove();
+                        return;
+                    }
+
                     callId = snap.key;
                     callType = call.type;
                     
@@ -1029,7 +1043,7 @@
         }
 
         async function answerCall() {
-            stopSound();
+            stopSound(); // FIX: Stop sound immediately
             closeModal('incomingModal');
             
             try {
@@ -1098,9 +1112,11 @@
                 durationStr = `${m}m ${s}s`;
             }
 
+            // Only update DB if I initiated the end
             if(!isRemoteEnd && callId) {
                 setCallUI('ended', durationStr);
                 await db.ref('calls/'+callId).update({status: 'ended'});
+                // Wait for UI update before closing
                 await new Promise(r => setTimeout(r, 1500));
             }
 
