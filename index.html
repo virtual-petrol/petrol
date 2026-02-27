@@ -214,7 +214,6 @@
     <div class="container">
         <!-- Auth -->
         <div class="auth-section" id="authSection">
-            <!-- Added Image Logo Here -->
             <img src="Khaji.png" class="auth-logo" alt="Logo">
             <h1>ConnectChat</h1>
             <div class="auth-form">
@@ -402,7 +401,9 @@
         // Call Time Tracking
         let callStartTime = null;
         let callStatusListener = null;
-        let globalMsgListener = null; 
+        
+        // Notification Listener Tracking (FIX)
+        let msgListeners = {}; // Map uid -> firebase ref
 
         // Auth Logic
         auth.onAuthStateChanged(async user => {
@@ -487,19 +488,41 @@
             else loadSearch();
         }
 
-        // --- Background Message Listener Setup ---
+        // --- FIXED Notification Logic ---
         function setupGlobalListeners(friendIds) {
-            if(globalMsgListener) db.ref('messages').off('child_added', globalMsgListener);
-            
+            // 1. Cleanup old listeners to prevent duplicates
+            Object.keys(msgListeners).forEach(key => {
+                msgListeners[key].off();
+            });
+            msgListeners = {};
+
             friendIds.forEach(uid => {
                 const cid = [me.uid, uid].sort().join('_');
-                db.ref('messages/'+cid).orderByChild('timestamp').limitToLast(1).on('child_added', snap => {
+                const ref = db.ref('messages/'+cid).orderByChild('timestamp').limitToLast(1);
+                
+                // Store reference
+                msgListeners[uid] = ref;
+
+                // 2. Use a flag to ignore the initial load
+                let isFirstEvent = true;
+
+                ref.on('child_added', snap => {
+                    if (isFirstEvent) {
+                        isFirstEvent = false;
+                        return; // Skip the initial data load
+                    }
+
                     const msg = snap.val();
+                    
+                    // Logic: If message is not from me AND chat is not currently open
                     if(msg.sender !== me.uid) {
                         if(chatId !== cid) {
+                            // Play Sound
                             playSound('message');
+                            // Update Unread Count
                             if(!unreadCounts[uid]) unreadCounts[uid] = 0;
                             unreadCounts[uid]++;
+                            // Refresh Sidebar if on friends tab
                             if(currentTab === 'friends') loadFriends();
                         }
                     }
@@ -516,7 +539,9 @@
                 if(f[me.uid]) ids.push(Object.keys(f).find(x => x !== me.uid));
             });
             
+            // Setup listeners (function handles cleanup internally)
             setupGlobalListeners(ids);
+            
             renderUsers(ids, 'friends');
         }
 
@@ -641,6 +666,7 @@
             friend = { uid, ...uSnap.val() };
             chatId = [me.uid, friend.uid].sort().join('_');
             
+            // Clear unread count logic
             unreadCounts[uid] = 0;
             
             document.getElementById('chatAvatar').innerText = (friend.name||'U').charAt(0);
@@ -659,7 +685,7 @@
             
             loadMessages();
             listenTyping();
-            loadFriends(); 
+            loadFriends(); // Refresh sidebar to remove bold/badge
         }
 
         function goBack() {
