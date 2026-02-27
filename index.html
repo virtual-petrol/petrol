@@ -1,103 +1,86 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Khaji - Social Media with Chat & Calls</title>
-    
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Firebase CDNs -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
-    
-    <!-- Icons (Font Awesome) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <style>
-        /* Custom animations */
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.8; }
-        }
-        .animate-pulse-custom {
-            animation: pulse 2s infinite;
-        }
-        @keyframes slideIn {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .slide-in {
-            animation: slideIn 0.3s ease-out;
-        }
-        @keyframes bounce {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-10px); }
-        }
-        .typing-dot {
-            width: 8px;
-            height: 8px;
-            background: #3b82f6;
-            border-radius: 50%;
-            display: inline-block;
-            margin: 0 2px;
-            animation: bounce 1.4s infinite;
-        }
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        
-        /* Scrollbar styling */
-        #messagesContainer::-webkit-scrollbar {
-            width: 6px;
-        }
-        #messagesContainer::-webkit-scrollbar-track {
-            background: #1f2937;
-        }
-        #messagesContainer::-webkit-scrollbar-thumb {
-            background: #4b5563;
-            border-radius: 3px;
-        }
-        #messagesContainer::-webkit-scrollbar-thumb:hover {
-            background: #6b7280;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ConnectChat Pro</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+
+<style>
+body{margin:0;font-family:Arial;background:#f4f6fb}
+.container{display:flex;height:100vh}
+.sidebar{width:300px;background:#fff;border-right:1px solid #ddd;display:flex;flex-direction:column}
+.main{flex:1;display:flex;flex-direction:column}
+.header{padding:15px;background:#667eea;color:#fff}
+.list{flex:1;overflow:auto}
+.user{padding:10px;border-bottom:1px solid #eee;cursor:pointer}
+.user:hover{background:#f0f0f0}
+.chat{flex:1;overflow:auto;padding:15px;background:#f9f9f9}
+.msg{margin:5px 0}
+.sent{text-align:right}
+.bubble{display:inline-block;padding:8px 12px;border-radius:15px;background:#fff;max-width:70%}
+.sent .bubble{background:#667eea;color:#fff}
+.input{display:flex;padding:10px;background:#fff}
+input[type=text]{flex:1;padding:8px}
+button{padding:6px 10px;margin:2px;cursor:pointer}
+.typing{font-size:12px;color:#777;margin-left:10px}
+.seen{font-size:10px;color:#aaa}
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+background:#fff;padding:20px;border-radius:10px;display:none}
+</style>
 </head>
-<body class="bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+<body>
 
-<div id="app" class="min-h-screen">
-    <!-- Navigation -->
-    <nav class="bg-gray-800/90 backdrop-blur-lg border-b border-gray-700 px-6 py-4">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text">
-                Khaji
-            </h1>
-            <div id="nav-buttons" class="flex gap-3">
-                <!-- Dynamic buttons will be inserted here -->
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content Area -->
-    <main id="main-content" class="container mx-auto px-4 py-8">
-        <!-- Content will be dynamically loaded here -->
-        <div id="loading-spinner" class="flex justify-center items-center h-64">
-            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-    </main>
+<div id="auth">
+<h2>ConnectChat Login</h2>
+<input id="email" placeholder="Email"><br><br>
+<input id="pass" type="password" placeholder="Password"><br><br>
+<button onclick="login()">Login</button>
+<button onclick="register()">Register</button>
 </div>
 
-<!-- Toast Notification -->
-<div id="toast" class="fixed top-4 right-4 z-50 hidden">
-    <div class="bg-gray-800 border-l-4 border-blue-500 text-white px-6 py-3 rounded-lg shadow-xl">
-        <p id="toast-message"></p>
-    </div>
+<div class="container" id="app" style="display:none">
+
+<div class="sidebar">
+<div class="header">
+<b id="me"></b><br>
+<small id="statusText">Online</small><br><br>
+<button onclick="toggleStatus()">Toggle Status</button>
+<button onclick="openProfile()">Profile</button>
+<button onclick="logout()">Logout</button>
+</div>
+<div class="list" id="users"></div>
+</div>
+
+<div class="main">
+<div class="header" id="chatTitle">Select User</div>
+<div class="chat" id="chat"></div>
+<div class="typing" id="typing"></div>
+<div class="input">
+<input type="text" id="msgBox" oninput="typingNow()" onkeypress="if(event.key==='Enter')send()">
+<input type="file" id="imgFile" hidden onchange="sendImage()">
+<button onclick="document.getElementById('imgFile').click()">📷</button>
+<button onclick="send()">Send</button>
+</div>
+</div>
+
+</div>
+
+<div class="modal" id="profileModal">
+<h3>My Profile</h3>
+<p>Name: <span id="pName"></span></p>
+<p>Email: <span id="pEmail"></span></p>
+<p>Status: <span id="pStatus"></span></p>
+<button onclick="closeProfile()">Close</button>
 </div>
 
 <script>
-// ==================== FIREBASE CONFIGURATION ====================
+/* ================= FIREBASE ================= */
+
 const firebaseConfig = {
     apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
     authDomain: "khaji-23a99.firebaseapp.com",
@@ -109,509 +92,192 @@ const firebaseConfig = {
     measurementId: "G-2RE1L7HQTZ"
 };
 
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-const rtdb = firebase.database();
+const auth=firebase.auth();
+const db=firebase.database();
+const storage=firebase.storage();
 
-// Enable Firestore persistence for offline support
-db.enablePersistence().catch(err => {
-    console.log('Persistence error:', err);
+let me=null;
+let currentChat=null;
+let currentOther=null;
+
+/* ================= AUTH ================= */
+
+function login(){
+auth.signInWithEmailAndPassword(email.value,pass.value);
+}
+function register(){
+auth.createUserWithEmailAndPassword(email.value,pass.value);
+}
+function logout(){
+if(me){
+db.ref("users/"+me.uid+"/online").set(false);
+}
+auth.signOut();
+}
+
+/* ================= AUTH STATE ================= */
+
+auth.onAuthStateChanged(u=>{
+if(u){
+me=u;
+db.ref("users/"+u.uid).update({
+email:u.email,
+online:true,
+lastSeen:Date.now()
+});
+db.ref("users/"+u.uid+"/online").onDisconnect().set(false);
+
+auth.style="display:none";
+document.getElementById("auth").style.display="none";
+document.getElementById("app").style.display="flex";
+document.getElementById("me").innerText=u.email;
+loadUsers();
+}else{
+document.getElementById("auth").style.display="block";
+document.getElementById("app").style.display="none";
+}
 });
 
-// ==================== APP STATE ====================
-let currentUser = null;
-let currentChatUser = null;
-let messagesUnsubscribe = null;
-let usersUnsubscribe = null;
+/* ================= USERS ================= */
 
-// ==================== UTILITY FUNCTIONS ====================
-function showToast(message, type = 'info') {
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toast-message');
-    toastMessage.textContent = message;
-    toast.classList.remove('hidden');
-    
-    // Set color based on type
-    const borderClass = type === 'error' ? 'border-red-500' : 
-                       type === 'success' ? 'border-green-500' : 'border-blue-500';
-    toast.firstChild.className = `bg-gray-800 border-l-4 ${borderClass} text-white px-6 py-3 rounded-lg shadow-xl`;
-    
-    setTimeout(() => toast.classList.add('hidden'), 3000);
+function loadUsers(){
+db.ref("users").on("value",snap=>{
+users.innerHTML="";
+snap.forEach(s=>{
+if(s.key!==me.uid){
+let div=document.createElement("div");
+div.className="user";
+div.innerText=s.val().email+(s.val().online?" (Online)":" (Offline)");
+div.onclick=()=>openChat(s.key,s.val().email);
+users.appendChild(div);
+}
+});
+});
 }
 
-function showLoading(show = true) {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) {
-        spinner.style.display = show ? 'flex' : 'none';
-    }
+/* ================= CHAT ================= */
+
+function openChat(uid,email){
+currentOther=uid;
+currentChat=[me.uid,uid].sort().join("_");
+chatTitle.innerText=email;
+loadMessages();
+listenTyping();
 }
 
-// ==================== AUTH FUNCTIONS ====================
-function showLoginPage() {
-    document.getElementById('main-content').innerHTML = `
-        <div class="max-w-md mx-auto slide-in">
-            <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-8 border border-gray-700">
-                <h2 class="text-3xl font-bold text-center mb-8">Welcome Back</h2>
-                <form onsubmit="handleLogin(event)">
-                    <div class="mb-4">
-                        <input type="email" id="email" placeholder="Email" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
-                    </div>
-                    <div class="mb-6">
-                        <input type="password" id="password" placeholder="Password" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
-                    </div>
-                    <button type="submit" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:opacity-90 transition">
-                        Login
-                    </button>
-                </form>
-                <div class="mt-4 text-center">
-                    <button onclick="handleGoogleLogin()" class="w-full bg-gray-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-600 transition">
-                        <i class="fab fa-google"></i> Continue with Google
-                    </button>
-                </div>
-                <p class="mt-4 text-center text-gray-400">
-                    Don't have an account? 
-                    <button onclick="showRegisterPage()" class="text-blue-400 hover:underline">Register</button>
-                </p>
-            </div>
-        </div>
-    `;
-}
+function send(){
+let text=msgBox.value.trim();
+if(!text||!currentChat)return;
 
-function showRegisterPage() {
-    document.getElementById('main-content').innerHTML = `
-        <div class="max-w-md mx-auto slide-in">
-            <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-8 border border-gray-700">
-                <h2 class="text-3xl font-bold text-center mb-8">Create Account</h2>
-                <form onsubmit="handleRegister(event)">
-                    <div class="mb-4">
-                        <input type="text" id="username" placeholder="Username" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
-                    </div>
-                    <div class="mb-4">
-                        <input type="email" id="email" placeholder="Email" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
-                    </div>
-                    <div class="mb-6">
-                        <input type="password" id="password" placeholder="Password" 
-                            class="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
-                    </div>
-                    <button type="submit" class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-xl font-semibold hover:opacity-90 transition">
-                        Register
-                    </button>
-                </form>
-                <p class="mt-4 text-center text-gray-400">
-                    Already have an account? 
-                    <button onclick="showLoginPage()" class="text-blue-400 hover:underline">Login</button>
-                </p>
-            </div>
-        </div>
-    `;
-}
-
-async function handleLogin(e) {
-    e.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    
-    try {
-        showLoading(true);
-        await auth.signInWithEmailAndPassword(email, password);
-        showToast('Login successful!', 'success');
-    } catch (error) {
-        showLoading(false);
-        showToast(error.message, 'error');
-    }
-}
-
-async function handleRegister(e) {
-    e.preventDefault();
-    const username = document.getElementById('username').value;
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    
-    if (!username || !email || !password) {
-        showToast('Please fill all fields', 'error');
-        return;
-    }
-    
-    try {
-        showLoading(true);
-        const result = await auth.createUserWithEmailAndPassword(email, password);
-        
-        // Create user profile in Firestore
-        await db.collection('users').doc(result.user.uid).set({
-            username: username,
-            email: email,
-            avatar: `https://ui-avatars.com/api/?name=${username}&background=random`,
-            bio: 'Hey there! I am using Khaji',
-            online: true,
-            lastSeen: new Date(),
-            friends: [],
-            createdAt: new Date()
-        });
-        
-        showToast('Account created successfully!', 'success');
-    } catch (error) {
-        showLoading(false);
-        showToast(error.message, 'error');
-    }
-}
-
-async function handleGoogleLogin() {
-    try {
-        showLoading(true);
-        const provider = new firebase.auth.GoogleAuthProvider();
-        const result = await auth.signInWithPopup(provider);
-        
-        // Check if user exists in Firestore
-        const userDoc = await db.collection('users').doc(result.user.uid).get();
-        
-        if (!userDoc.exists) {
-            await db.collection('users').doc(result.user.uid).set({
-                username: result.user.displayName,
-                email: result.user.email,
-                avatar: result.user.photoURL,
-                bio: 'Hey there! I am using Khaji',
-                online: true,
-                lastSeen: new Date(),
-                friends: [],
-                createdAt: new Date()
-            });
-        }
-        
-        showToast('Login successful!', 'success');
-    } catch (error) {
-        showLoading(false);
-        showToast(error.message, 'error');
-    }
-}
-
-async function handleLogout() {
-    try {
-        if (currentUser) {
-            await db.collection('users').doc(currentUser.uid).update({
-                online: false,
-                lastSeen: new Date()
-            });
-        }
-        await auth.signOut();
-        showToast('Logged out successfully', 'success');
-        showLoginPage();
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-// ==================== HOME PAGE ====================
-async function showHomePage() {
-    showLoading(true);
-    
-    try {
-        // Get all users
-        const usersSnapshot = await db.collection('users').get();
-        
-        if (usersSnapshot.empty) {
-            document.getElementById('main-content').innerHTML = `
-                <div class="text-center py-12">
-                    <p class="text-gray-400">No users found. Share the app with friends!</p>
-                </div>
-            `;
-            showLoading(false);
-            return;
-        }
-        
-        const users = usersSnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(user => user.id !== currentUser?.uid);
-        
-        let html = `
-            <div class="max-w-6xl mx-auto slide-in">
-                <div class="text-center mb-12">
-                    <h1 class="text-4xl font-bold mb-4">Connect with People</h1>
-                    <p class="text-gray-400 mb-6">Found ${users.length} user${users.length !== 1 ? 's' : ''}</p>
-                    <div class="relative max-w-md mx-auto">
-                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" id="searchUsers" placeholder="Search users..." 
-                            class="w-full pl-12 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-blue-500"
-                            onkeyup="filterUsers()">
-                    </div>
-                </div>
-                <div id="usersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        `;
-        
-        if (users.length === 0) {
-            html += '<p class="col-span-3 text-center text-gray-400">No other users found</p>';
-        } else {
-            users.forEach(user => {
-                html += `
-                    <div class="user-card bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 border border-gray-700 hover:border-blue-500 transition-all" 
-                         data-name="${(user.username || '').toLowerCase()}">
-                        <div class="flex items-center gap-4">
-                            <div class="relative">
-                                <img src="${user.avatar || `https://ui-avatars.com/api/?name=${user.username || 'User'}&background=random`}" 
-                                     class="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
-                                     onerror="this.src='https://ui-avatars.com/api/?name=User&background=random'">
-                                <span class="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-gray-800 ${user.online ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}"></span>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="font-semibold">${user.username || 'Anonymous'}</h3>
-                                <p class="text-sm text-gray-400">${user.bio || 'Hey there!'}</p>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex justify-end gap-2">
-                            <button onclick="openChat('${user.id}', '${user.username || 'User'}')" 
-                                class="p-2 bg-blue-500/20 text-blue-500 rounded-full hover:bg-blue-500 hover:text-white transition">
-                                <i class="fas fa-comment"></i>
-                            </button>
-                            <button onclick="showToast('Video call feature coming soon!')" 
-                                class="p-2 bg-green-500/20 text-green-500 rounded-full hover:bg-green-500 hover:text-white transition">
-                                <i class="fas fa-phone"></i>
-                            </button>
-                            <button onclick="showToast('Video call feature coming soon!')" 
-                                class="p-2 bg-purple-500/20 text-purple-500 rounded-full hover:bg-purple-500 hover:text-white transition">
-                                <i class="fas fa-video"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-        
-        html += `</div></div>`;
-        document.getElementById('main-content').innerHTML = html;
-        showLoading(false);
-        
-    } catch (error) {
-        console.error('Error loading users:', error);
-        document.getElementById('main-content').innerHTML = `
-            <div class="text-center py-12">
-                <p class="text-red-400">Error loading users. Please refresh the page.</p>
-                <button onclick="showHomePage()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Try Again
-                </button>
-            </div>
-        `;
-        showLoading(false);
-        showToast('Error loading users: ' + error.message, 'error');
-    }
-}
-
-function filterUsers() {
-    const searchTerm = document.getElementById('searchUsers')?.value.toLowerCase() || '';
-    const cards = document.querySelectorAll('.user-card');
-    
-    cards.forEach(card => {
-        const name = card.dataset.name || '';
-        card.style.display = name.includes(searchTerm) ? 'block' : 'none';
-    });
-}
-
-// ==================== CHAT FUNCTIONS ====================
-async function openChat(userId, username) {
-    if (!currentUser) {
-        showToast('Please login first', 'error');
-        return;
-    }
-    
-    currentChatUser = { id: userId, name: username };
-    
-    // Unsubscribe from previous messages
-    if (messagesUnsubscribe) {
-        messagesUnsubscribe();
-    }
-    
-    const chatId = [currentUser.uid, userId].sort().join('_');
-    
-    // Load chat interface
-    document.getElementById('main-content').innerHTML = `
-        <div class="max-w-4xl mx-auto h-[calc(100vh-200px)] slide-in">
-            <div class="bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700 h-full flex flex-col">
-                <!-- Chat Header -->
-                <div class="p-4 border-b border-gray-700 flex items-center gap-3">
-                    <button onclick="showHomePage()" class="text-gray-400 hover:text-white transition">
-                        <i class="fas fa-arrow-left text-xl"></i>
-                    </button>
-                    <div>
-                        <h3 class="font-semibold">${username}</h3>
-                        <div id="typingIndicator" class="hidden">
-                            <span class="typing-dot"></span>
-                            <span class="typing-dot"></span>
-                            <span class="typing-dot"></span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Messages -->
-                <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
-                
-                <!-- Input -->
-                <div class="p-4 border-t border-gray-700">
-                    <form onsubmit="sendMessage(event)" class="flex gap-2">
-                        <input type="text" id="messageInput" placeholder="Type a message..." 
-                            class="flex-1 px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500"
-                            onkeyup="handleTyping()">
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">
-                            <i class="fas fa-paper-plane"></i>
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Listen for messages
-    const messagesRef = db.collection('chats').doc(chatId).collection('messages').orderBy('timestamp');
-    messagesUnsubscribe = messagesRef.onSnapshot((snapshot) => {
-        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        displayMessages(messages);
-    }, (error) => {
-        console.error('Error loading messages:', error);
-        showToast('Error loading messages', 'error');
-    });
-    
-    // Listen for typing indicator
-    const typingRef = rtdb.ref(`typing/${chatId}/${userId}`);
-    typingRef.on('value', (snapshot) => {
-        const typing = snapshot.val();
-        const indicator = document.getElementById('typingIndicator');
-        if (indicator) {
-            indicator.classList.toggle('hidden', !typing);
-        }
-    });
-}
-
-function displayMessages(messages) {
-    const container = document.getElementById('messagesContainer');
-    if (!container) return;
-    
-    let html = '';
-    messages.forEach(msg => {
-        const isMe = msg.senderId === currentUser?.uid;
-        const time = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-        
-        html += `
-            <div class="flex ${isMe ? 'justify-end' : 'justify-start'} slide-in">
-                <div class="max-w-[70%] ${isMe ? 'bg-blue-600' : 'bg-gray-700'} rounded-2xl px-4 py-2">
-                    <p>${msg.text}</p>
-                    <p class="text-xs opacity-70 mt-1">${time}</p>
-                </div>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
-}
-
-async function sendMessage(e) {
-    e.preventDefault();
-    const input = document.getElementById('messageInput');
-    const text = input.value.trim();
-    
-    if (!text || !currentChatUser) return;
-    
-    const chatId = [currentUser.uid, currentChatUser.id].sort().join('_');
-    
-    try {
-        await db.collection('chats').doc(chatId).collection('messages').add({
-            text: text,
-            senderId: currentUser.uid,
-            receiverId: currentChatUser.id,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            read: false
-        });
-        
-        input.value = '';
-        
-        // Reset typing indicator
-        const typingRef = rtdb.ref(`typing/${chatId}/${currentUser.uid}`);
-        await typingRef.set(false);
-        
-    } catch (error) {
-        showToast('Failed to send message', 'error');
-    }
-}
-
-let typingTimeout;
-function handleTyping() {
-    if (!currentChatUser || !currentUser) return;
-    
-    const chatId = [currentUser.uid, currentChatUser.id].sort().join('_');
-    const typingRef = rtdb.ref(`typing/${chatId}/${currentUser.uid}`);
-    
-    typingRef.set(true);
-    
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-        typingRef.set(false);
-    }, 2000);
-}
-
-// ==================== AUTH STATE LISTENER ====================
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        currentUser = user;
-        
-        try {
-            // Update online status
-            await db.collection('users').doc(user.uid).update({
-                online: true,
-                lastSeen: new Date()
-            });
-            
-            // Update navigation
-            document.getElementById('nav-buttons').innerHTML = `
-                <button onclick="showHomePage()" class="px-4 py-2 text-gray-300 hover:text-white transition">
-                    <i class="fas fa-home"></i> Home
-                </button>
-                <button onclick="handleLogout()" class="px-4 py-2 bg-red-600/20 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
-            `;
-            
-            // Show home page
-            await showHomePage();
-            
-        } catch (error) {
-            console.error('Error updating user status:', error);
-            showToast('Error loading profile', 'error');
-        }
-    } else {
-        currentUser = null;
-        showLoginPage();
-        
-        document.getElementById('nav-buttons').innerHTML = `
-            <button onclick="showLoginPage()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                <i class="fas fa-sign-in-alt"></i> Login
-            </button>
-            <button onclick="showRegisterPage()" class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition">
-                <i class="fas fa-user-plus"></i> Register
-            </button>
-        `;
-    }
+db.ref("messages/"+currentChat).push({
+sender:me.uid,
+text:text,
+time:Date.now(),
+seen:false
 });
 
-// Set online status to false when page is closed
-window.addEventListener('beforeunload', () => {
-    if (currentUser) {
-        db.collection('users').doc(currentUser.uid).update({
-            online: false,
-            lastSeen: new Date()
-        }).catch(console.error);
-    }
-});
+msgBox.value="";
+}
 
-// Handle initial load
-document.addEventListener('DOMContentLoaded', () => {
-    // Check if user is already logged in
-    if (!auth.currentUser) {
-        showLoginPage();
-    }
+function sendImage(){
+let file=imgFile.files[0];
+if(!file)return;
+
+let ref=storage.ref("chatImages/"+Date.now()+file.name);
+ref.put(file).then(()=>{
+ref.getDownloadURL().then(url=>{
+db.ref("messages/"+currentChat).push({
+sender:me.uid,
+image:url,
+time:Date.now(),
+seen:false
 });
+});
+});
+}
+
+function loadMessages(){
+db.ref("messages/"+currentChat).on("value",snap=>{
+chat.innerHTML="";
+snap.forEach(s=>{
+let m=s.val();
+let div=document.createElement("div");
+div.className="msg "+(m.sender===me.uid?"sent":"");
+
+let bubble=document.createElement("div");
+bubble.className="bubble";
+
+if(m.text) bubble.innerText=m.text;
+if(m.image){
+let img=document.createElement("img");
+img.src=m.image;
+img.style.maxWidth="150px";
+bubble.appendChild(img);
+}
+
+div.appendChild(bubble);
+
+if(m.sender===me.uid){
+let del=document.createElement("button");
+del.innerText="🗑";
+del.onclick=()=>db.ref("messages/"+currentChat+"/"+s.key).remove();
+div.appendChild(del);
+
+let seen=document.createElement("div");
+seen.className="seen";
+seen.innerText=m.seen?"Seen":"Sent";
+div.appendChild(seen);
+}else{
+db.ref("messages/"+currentChat+"/"+s.key+"/seen").set(true);
+}
+
+chat.appendChild(div);
+});
+chat.scrollTop=chat.scrollHeight;
+});
+}
+
+/* ================= TYPING ================= */
+
+function typingNow(){
+if(!currentChat)return;
+db.ref("typing/"+currentChat+"/"+me.uid).set(true);
+setTimeout(()=>{
+db.ref("typing/"+currentChat+"/"+me.uid).remove();
+},1000);
+}
+
+function listenTyping(){
+db.ref("typing/"+currentChat+"/"+currentOther).on("value",snap=>{
+typing.innerText=snap.exists()?"Typing...":"";
+});
+}
+
+/* ================= STATUS ================= */
+
+function toggleStatus(){
+db.ref("users/"+me.uid+"/online").once("value",snap=>{
+let newStatus=!snap.val();
+db.ref("users/"+me.uid+"/online").set(newStatus);
+statusText.innerText=newStatus?"Online":"Offline";
+});
+}
+
+/* ================= PROFILE ================= */
+
+function openProfile(){
+db.ref("users/"+me.uid).once("value",snap=>{
+let data=snap.val();
+pName.innerText=data.email.split("@")[0];
+pEmail.innerText=data.email;
+pStatus.innerText=data.online?"Online":"Offline";
+profileModal.style.display="block";
+});
+}
+function closeProfile(){
+profileModal.style.display="none";
+}
 </script>
 
 </body>
