@@ -79,12 +79,20 @@
 
         /* Sidebar */
         .sidebar { width: 300px; background: #f9f9f9; border-right: 1px solid #eee; display: flex; flex-direction: column; flex-shrink: 0; height: 100%; }
-        .user-profile { padding: 15px; background: white; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; }
+        
+        /* Clickable Profile Header */
+        .user-profile { 
+            padding: 15px; background: white; border-bottom: 1px solid #eee; 
+            display: flex; align-items: center; gap: 10px; cursor: pointer; 
+        }
+        .user-profile:hover { background: #f0f0f0; }
+        
         .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; overflow: hidden; }
         .avatar img { width: 100%; height: 100%; object-fit: cover; }
         .user-info { flex: 1; overflow: hidden; }
         .user-info h3 { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .logout-btn { background: none; border: none; font-size: 18px; cursor: pointer; opacity: 0.6; }
+        
         .tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
         .tab { flex: 1; padding: 12px 5px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; }
         .tab.active { color: #667eea; border-bottom: 2px solid #667eea; }
@@ -154,7 +162,7 @@
         .modal-content { background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; position: relative; }
         .modal-close { position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 20px; cursor: pointer; }
         .modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; }
-        .modal-save-btn { width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .modal-save-btn { width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
         
         /* Video Call UI */
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
@@ -257,7 +265,7 @@
                     <p style="font-size: 13px; color: #666; margin-bottom: 10px;">A verification link has been sent to:</p>
                     <p style="font-weight: bold; color: #667eea; margin-bottom: 20px;" id="verifyEmailLabel"></p>
                     <button class="auth-btn" onclick="resendVerification()">Resend Email</button>
-                    <button class="auth-btn secondary" onclick="refreshUser()">I have verified / Refresh</button>
+                    <button class="auth-btn secondary" onclick="checkVerification()">I have verified / Refresh</button>
                     <span class="link-text" onclick="logout()">Logout</span>
                 </div>
 
@@ -269,17 +277,20 @@
             <div class="app-container" id="appContainer">
                 <!-- Sidebar -->
                 <div class="sidebar">
+                    <!-- Profile Header: Now opens modal on click -->
                     <div class="user-profile" onclick="openModal('profileModal')">
                         <div class="avatar" id="myAvatar">U</div>
                         <div class="user-info">
                             <h3 id="myName">User</h3>
                             <div style="display:flex; align-items:center; gap:5px; margin-top:3px;">
-                                <input type="checkbox" id="onlineCheck" checked onchange="toggleStatus()" style="width:12px; height:12px;">
+                                <input type="checkbox" id="onlineCheck" checked onchange="toggleStatus()" style="width:12px; height:12px;" onclick="event.stopPropagation()">
                                 <label for="onlineCheck" style="font-size:11px; color:#666;">Online</label>
                             </div>
                         </div>
-                        <button class="logout-btn" onclick="logout()">🚪</button>
+                        <!-- Settings Icon instead of direct logout -->
+                        <div style="font-size: 20px; opacity: 0.6;">⚙️</div>
                     </div>
+                    
                     <div class="tabs">
                         <div class="tab active" onclick="loadTab('friends')" id="tabFriends">Friends</div>
                         <div class="tab" onclick="loadTab('requests')" id="tabRequests">Requests <span class="friend-request-badge" id="reqBadge" style="display:none;">0</span></div>
@@ -322,11 +333,16 @@
     <div class="modal-overlay" id="profileModal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal('profileModal')">&times;</button>
-            <h2 style="margin-bottom:15px;">Edit Profile</h2>
+            <h2 style="margin-bottom:15px;">Settings & Profile</h2>
             <input type="text" class="modal-input" id="editName" placeholder="Name">
             <input type="text" class="modal-input" id="editBio" placeholder="Bio">
             <input type="text" class="modal-input" id="editStatus" placeholder="Status (e.g., Busy)">
-            <button class="modal-save-btn" onclick="saveProfile()">Save</button>
+            <button class="modal-save-btn" onclick="saveProfile()">Save Profile</button>
+            
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            
+            <!-- Logout Button Moved Here -->
+            <button class="modal-save-btn" style="background: #ff4757;" onclick="logout()">Logout</button>
         </div>
     </div>
 
@@ -622,21 +638,37 @@
             }
         }
 
-        async function refreshUser() {
+        // Fixed Refresh Logic
+        async function checkVerification() {
             try {
                 if(auth.currentUser) {
                     await auth.currentUser.reload();
-                    // The onAuthStateChanged listener will handle the rest if verified
-                    if(!auth.currentUser.emailVerified) {
-                        showToast("Email not verified yet.", 'info');
+                    if(auth.currentUser.emailVerified) {
+                        showToast("Email Verified! Logging in...", "success");
+                        // Manually trigger the app setup since onAuthStateChanged might not fire immediately on reload
+                        me = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || "User", email: auth.currentUser.email };
+                
+                        await db.ref('users/'+me.uid).update({ name: me.name, email: me.email, online: true });
+                        db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
+                        db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+                
+                        showApp();
+                        listenRequests();
+                        listenCalls();
+                    } else {
+                        showToast("Email not verified yet. Please check your inbox.", 'info');
                     }
                 }
             } catch(e) {
                 console.log(e);
+                showToast("Error checking verification", 'error');
             }
         }
         
-        function logout() { auth.signOut(); backToLogin(); }
+        function logout() { 
+            auth.signOut(); 
+            backToLogin();
+        }
 
         // ----------------- APP LOGIC ----------------- //
 
