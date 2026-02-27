@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="icon" type="image/png" href="Khaji.png">
-    <title>Khaji Chat</title>
+    <title>ConnectChat</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -597,7 +597,6 @@
                 await cred.user.sendEmailVerification();
                 
                 // Save to DB with verified: false
-                // This user will NOT show up in search until verified is true
                 await db.ref('users/'+cred.user.uid).set({ 
                     name, 
                     email: cred.user.email, 
@@ -607,7 +606,7 @@
                     verified: false 
                 });
 
-                showToast("Registration successful! Please check your email for verification.", 'success');
+                showToast("Registered! Check Inbox/Spam to verify.", 'success', 5000);
                 
                 // Show verify screen immediately
                 showVerifyScreen(cred.user.email);
@@ -625,7 +624,7 @@
             }
             try {
                 await auth.sendPasswordResetEmail(email);
-                showToast("Password reset link sent! Check your inbox.", 'success');
+                showToast("Password reset link sent! Check your inbox/spam.", 'success');
                 backToLogin();
             } catch(e) {
                 showToast(e.message, 'error');
@@ -665,7 +664,7 @@
                         listenRequests();
                         listenCalls();
                     } else {
-                        showToast("Email not verified yet. Please check your inbox.", 'info');
+                        showToast("Email not verified yet. Please check your inbox/spam.", 'info');
                     }
                 }
             } catch(e) {
@@ -674,9 +673,29 @@
             }
         }
         
-        function logout() { 
-            auth.signOut(); 
-            backToLogin();
+        // FIXED LOGOUT FUNCTION
+        async function logout() {
+            try {
+                // 1. Close the modal immediately so UI feels responsive
+                closeModal('profileModal');
+                
+                // 2. Set online status to false in DB
+                if(me && me.uid) {
+                    await db.ref('users/'+me.uid).update({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+                }
+                
+                // 3. Sign out from Firebase
+                await auth.signOut();
+                
+                // 4. Reset state
+                me = null;
+                friend = null;
+                chatId = null;
+                
+                // 5. UI is handled by onAuthStateChanged
+            } catch(e) {
+                console.error("Logout Error", e);
+            }
         }
 
         // ----------------- APP LOGIC ----------------- //
@@ -802,10 +821,6 @@
             // Filter Logic
             Object.keys(users).forEach(uid => {
                 const u = users[uid];
-                // 1. Not me
-                // 2. Not already a friend
-                // 3. Not already requested
-                // 4. MUST BE VERIFIED (u.verified === true)
                 if(uid !== me.uid && !friendIds.includes(uid) && !pendingIds.includes(uid) && u.verified === true) {
                     list.push({uid, ...u});
                 }
