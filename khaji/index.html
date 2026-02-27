@@ -1,113 +1,367 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Khaji Chat - Login/Register</title>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    }
-    
-    body {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    
-    .container {
-      background: white;
-      padding: 40px;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      width: 100%;
-      max-width: 400px;
-    }
-    
-    h2 {
-      text-align: center;
-      color: #333;
-      margin-bottom: 30px;
-      font-size: 28px;
-    }
-    
-    input {
-      width: 100%;
-      padding: 12px 15px;
-      margin: 8px 0;
-      border: 2px solid #e0e0e0;
-      border-radius: 10px;
-      font-size: 14px;
-      transition: all 0.3s;
-    }
-    
-    input:focus {
-      outline: none;
-      border-color: #667eea;
-    }
-    
-    button {
-      width: 100%;
-      padding: 12px;
-      margin: 8px 0;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    
-    #registerBtn {
-      background: #667eea;
-      color: white;
-    }
-    
-    #registerBtn:hover {
-      background: #5a67d8;
-      transform: translateY(-2px);
-    }
-    
-    #loginBtn {
-      background: #48bb78;
-      color: white;
-    }
-    
-    #loginBtn:hover {
-      background: #38a169;
-      transform: translateY(-2px);
-    }
-    
-    #error {
-      color: #e53e3e;
-      text-align: center;
-      margin-top: 15px;
-      font-size: 14px;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ConnectChat Pro+</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+
+<style>
+*{box-sizing:border-box}
+body{
+margin:0;
+font-family: 'Segoe UI', sans-serif;
+background:linear-gradient(135deg,#667eea,#764ba2);
+height:100vh;
+overflow:hidden;
+}
+
+/* AUTH */
+#auth{
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+color:white;
+}
+#auth input{
+padding:10px;
+margin:5px;
+width:250px;
+border:none;
+border-radius:8px;
+}
+#auth button{
+padding:10px 20px;
+border:none;
+border-radius:8px;
+background:white;
+color:#764ba2;
+font-weight:bold;
+cursor:pointer;
+}
+
+/* MAIN */
+.container{
+display:flex;
+height:100vh;
+}
+
+/* SIDEBAR */
+.sidebar{
+width:300px;
+background:white;
+display:flex;
+flex-direction:column;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar-header{
+padding:20px;
+background:#764ba2;
+color:white;
+display:flex;
+justify-content:space-between;
+align-items:center;
+cursor:pointer;
+}
+
+.user-list{
+flex:1;
+overflow:auto;
+}
+
+.user{
+padding:15px;
+border-bottom:1px solid #eee;
+cursor:pointer;
+transition:0.2s;
+}
+.user:hover{
+background:#f3f3f3;
+}
+
+/* CHAT */
+.main{
+flex:1;
+display:flex;
+flex-direction:column;
+background:#f5f7fb;
+}
+
+.chat-header{
+padding:20px;
+background:white;
+border-bottom:1px solid #ddd;
+font-weight:bold;
+}
+
+.chat-box{
+flex:1;
+overflow:auto;
+padding:20px;
+}
+
+.message{
+margin:8px 0;
+display:flex;
+flex-direction:column;
+}
+
+.sent{
+align-items:flex-end;
+}
+
+.bubble{
+padding:10px 15px;
+border-radius:20px;
+max-width:60%;
+}
+
+.sent .bubble{
+background:#764ba2;
+color:white;
+}
+
+.received .bubble{
+background:white;
+box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+.meta{
+font-size:11px;
+color:gray;
+margin-top:2px;
+}
+
+.input-area{
+display:flex;
+padding:15px;
+background:white;
+border-top:1px solid #ddd;
+}
+
+.input-area input{
+flex:1;
+padding:10px;
+border-radius:20px;
+border:1px solid #ccc;
+outline:none;
+}
+
+.input-area button{
+margin-left:10px;
+padding:8px 15px;
+border:none;
+border-radius:20px;
+background:#764ba2;
+color:white;
+cursor:pointer;
+}
+
+/* PROFILE MODAL */
+.modal{
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:25px;
+border-radius:15px;
+width:300px;
+display:none;
+box-shadow:0 5px 20px rgba(0,0,0,0.2);
+}
+
+.modal h3{
+margin-top:0;
+}
+
+.modal input{
+width:100%;
+padding:8px;
+margin:5px 0;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+.modal button{
+width:100%;
+padding:8px;
+margin-top:5px;
+border:none;
+border-radius:8px;
+background:#764ba2;
+color:white;
+cursor:pointer;
+}
+</style>
 </head>
 <body>
-  <div class="container">
-    <h2>🚀 Khaji Chat</h2>
-    
-    <input type="text" id="username" placeholder="Username" autocomplete="off">
-    <input type="email" id="email" placeholder="Email" autocomplete="off">
-    <input type="password" id="password" placeholder="Password" autocomplete="off">
-    
-    <button id="registerBtn">Create New Account</button>
-    <button id="loginBtn">Login to Existing Account</button>
-    
-    <p id="error"></p>
-  </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="script.js"></script>
+<!-- AUTH -->
+<div id="auth">
+<h2>ConnectChat Pro+</h2>
+<input id="email" placeholder="Email">
+<input id="pass" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<button onclick="register()">Register</button>
+</div>
+
+<!-- MAIN APP -->
+<div class="container" id="app" style="display:none">
+
+<div class="sidebar">
+<div class="sidebar-header" onclick="openProfile()">
+<span id="myName">My Profile</span>
+<span>⚙</span>
+</div>
+<div class="user-list" id="users"></div>
+</div>
+
+<div class="main">
+<div class="chat-header" id="chatTitle">Select a user</div>
+<div class="chat-box" id="chatBox"></div>
+<div class="input-area">
+<input id="msgInput" placeholder="Type message..." onkeypress="if(event.key==='Enter')sendMessage()">
+<button onclick="sendMessage()">Send</button>
+</div>
+</div>
+
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal" id="profileModal">
+<h3>Profile Settings</h3>
+<input id="editName" placeholder="Display Name">
+<input id="editBio" placeholder="Bio">
+<button onclick="toggleStatus()">Toggle Online/Offline</button>
+<button onclick="saveProfile()">Save Changes</button>
+<button onclick="logout()">Logout</button>
+<button onclick="closeProfile()">Close</button>
+</div>
+
+<script>
+
+/* FIREBASE CONFIG */
+const firebaseConfig = {
+apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
+authDomain: "khaji-23a99.firebaseapp.com",
+databaseURL: "https://khaji-23a99-default-rtdb.asia-southeast1.firebasedatabase.app",
+projectId: "khaji-23a99",
+storageBucket: "khaji-23a99.firebasestorage.app",
+messagingSenderId: "84794766200",
+appId: "1:84794766200:web:207a50412961d45275ce8d",
+measurementId: "G-2RE1L7HQTZ"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.database();
+
+let me=null;
+let currentChat=null;
+
+/* AUTH */
+function login(){ auth.signInWithEmailAndPassword(email.value,pass.value); }
+function register(){ auth.createUserWithEmailAndPassword(email.value,pass.value); }
+function logout(){ auth.signOut(); }
+
+/* AUTH STATE */
+auth.onAuthStateChanged(user=>{
+if(user){
+me=user;
+db.ref("users/"+user.uid).update({
+email:user.email,
+name:user.email.split("@")[0],
+bio:"",
+online:true
+});
+document.getElementById("auth").style.display="none";
+document.getElementById("app").style.display="flex";
+loadUsers();
+}else{
+document.getElementById("auth").style.display="flex";
+document.getElementById("app").style.display="none";
+}
+});
+
+/* USERS */
+function loadUsers(){
+db.ref("users").on("value",snap=>{
+users.innerHTML="";
+snap.forEach(s=>{
+if(s.key!==me.uid){
+let u=s.val();
+let div=document.createElement("div");
+div.className="user";
+div.innerHTML="<b>"+(u.name||u.email)+"</b><br><small>"+(u.online?"Online":"Offline")+"</small>";
+div.onclick=()=>openChat(s.key,u.name||u.email);
+users.appendChild(div);
+}
+});
+});
+}
+
+/* CHAT */
+function openChat(uid,name){
+currentChat=[me.uid,uid].sort().join("_");
+chatTitle.innerText=name;
+db.ref("messages/"+currentChat).on("value",snap=>{
+chatBox.innerHTML="";
+snap.forEach(s=>{
+let m=s.val();
+let div=document.createElement("div");
+div.className="message "+(m.sender===me.uid?"sent":"received");
+div.innerHTML="<div class='bubble'>"+m.text+"</div>";
+chatBox.appendChild(div);
+});
+chatBox.scrollTop=chatBox.scrollHeight;
+});
+}
+
+function sendMessage(){
+let text=msgInput.value.trim();
+if(!text||!currentChat)return;
+db.ref("messages/"+currentChat).push({
+sender:me.uid,
+text:text,
+time:Date.now()
+});
+msgInput.value="";
+}
+
+/* PROFILE */
+function openProfile(){
+db.ref("users/"+me.uid).once("value",snap=>{
+let d=snap.val();
+editName.value=d.name||"";
+editBio.value=d.bio||"";
+profileModal.style.display="block";
+});
+}
+function closeProfile(){ profileModal.style.display="none"; }
+
+function saveProfile(){
+db.ref("users/"+me.uid).update({
+name:editName.value,
+bio:editBio.value
+});
+closeProfile();
+}
+
+function toggleStatus(){
+db.ref("users/"+me.uid+"/online").once("value",snap=>{
+db.ref("users/"+me.uid+"/online").set(!snap.val());
+});
+}
+
+</script>
+
 </body>
 </html>
