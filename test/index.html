@@ -32,17 +32,13 @@
             margin: 0 auto;
         }
 
-        /* Desktop styling */
         @media (min-width: 769px) {
             body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; position: static; height: 100vh; }
             .container { height: calc(100vh - 40px); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
         }
 
         /* Auth Section */
-        .auth-section {
-            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;
-        }
+        .auth-section { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; }
         .auth-section h1 { color: white; margin-bottom: 30px; }
         .auth-form { width: 100%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
         .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
@@ -57,10 +53,7 @@
         .app-container { display: flex; height: 100%; width: 100%; position: relative; overflow: hidden; }
 
         /* Sidebar */
-        .sidebar {
-            width: 300px; background: #f9f9f9; border-right: 1px solid #eee; display: flex; flex-direction: column;
-            flex-shrink: 0; height: 100%;
-        }
+        .sidebar { width: 300px; background: #f9f9f9; border-right: 1px solid #eee; display: flex; flex-direction: column; flex-shrink: 0; height: 100%; }
         .user-profile { padding: 15px; background: white; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; }
         .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
         .user-info { flex: 1; overflow: hidden; }
@@ -103,7 +96,7 @@
         .message.deleted .message-content { background: #f0f0f0; color: #aaa; font-style: italic; border: none; }
         .message-time { font-size: 9px; opacity: 0.7; margin-top: 4px; text-align: right; }
         .message.sent .message-time { color: rgba(255,255,255,0.8); }
-        .message-img { max-width: 100%; border-radius: 10px; margin-bottom: 5px; cursor: pointer; }
+        .message-img { max-width: 100%; max-height: 200px; border-radius: 10px; margin-bottom: 5px; cursor: pointer; display: block; }
         .msg-actions { position: absolute; top: -5px; right: -5px; background: white; border-radius: 10px; padding: 2px; display: none; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .message:hover .msg-actions { display: block; }
         .del-btn { border: none; background: none; cursor: pointer; color: #ff4757; font-size: 12px; }
@@ -125,8 +118,8 @@
         
         /* Video Call */
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
-        .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; }
-        .video-box { position: relative; background: #000; border-radius: 10px; overflow: hidden; min-height: 150px; }
+        .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; align-items: center; }
+        .video-box { position: relative; background: #000; border-radius: 10px; overflow: hidden; min-height: 150px; display: flex; align-items: center; justify-content: center; }
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
         .video-label { position: absolute; bottom: 5px; left: 5px; color: white; font-size: 12px; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 10px; }
         .call-controls { padding: 15px; display: flex; justify-content: center; gap: 20px; background: #000; }
@@ -146,18 +139,23 @@
             .app-container.chat-open .main-content { transform: translateX(0); }
             .back-btn { display: block; }
             .call-btn { padding: 8px; }
+            .video-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
+    <!-- Audio Elements -->
+    <audio id="msgSound" src="https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3" preload="auto"></audio>
+    <audio id="ringSound" src="https://cdn.freesound.org/previews/411/411089_5121236-lq.mp3" preload="auto" loop></audio>
+
     <div class="container">
         <!-- Auth -->
         <div class="auth-section" id="authSection">
             <h1>🤝 ConnectChat</h1>
             <div class="auth-form">
                 <div class="auth-tabs">
-                    <button class="auth-tab active" onclick="switchTab('login')">Login</button>
-                    <button class="auth-tab" onclick="switchTab('register')">Register</button>
+                    <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                    <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
                 </div>
                 <div id="loginForm">
                     <div class="input-group"><input type="email" id="loginEmail" placeholder="Email"></div>
@@ -190,9 +188,9 @@
                         <button class="logout-btn" onclick="logout()">🚪</button>
                     </div>
                     <div class="tabs">
-                        <div class="tab active" onclick="switchTab('friends')" id="tabFriends">Friends</div>
-                        <div class="tab" onclick="switchTab('requests')" id="tabRequests">Requests <span class="friend-request-badge" id="reqBadge" style="display:none;">0</span></div>
-                        <div class="tab" onclick="switchTab('search')" id="tabSearch">Search</div>
+                        <div class="tab active" onclick="loadTab('friends')" id="tabFriends">Friends</div>
+                        <div class="tab" onclick="loadTab('requests')" id="tabRequests">Requests <span class="friend-request-badge" id="reqBadge" style="display:none;">0</span></div>
+                        <div class="tab" onclick="loadTab('search')" id="tabSearch">Search</div>
                     </div>
                     <div class="tab-content" id="sidebarContent"></div>
                 </div>
@@ -217,7 +215,7 @@
                         <div style="text-align:center; color:#999; margin-top:50px;">Select a friend to start</div>
                     </div>
                     <div class="chat-input-area">
-                        <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)">
+                        <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
                         <button class="img-btn" onclick="document.getElementById('imageInput').click()">📷</button>
                         <input type="text" class="chat-input" id="msgInput" placeholder="Message..." oninput="handleTyping()" onkeypress="if(event.key==='Enter')sendMessage()">
                         <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>Send</button>
@@ -316,11 +314,6 @@
         const db = firebase.database();
         const storage = firebase.storage();
 
-        // Audio Sounds (Using generic URLs that work)
-        const msgSound = new Audio('https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3'); // Pop sound
-        const ringSound = new Audio('https://cdn.freesound.org/previews/411/411089_5121236-lq.mp3'); // Ringing
-        ringSound.loop = true;
-
         // State
         let me = null, friend = null, chatId = null;
         let currentTab = 'friends';
@@ -328,7 +321,10 @@
         let typingTimer = null;
         
         // WebRTC State
-        let pc = null; let myStream = null; let callId = null; let callType = null;
+        let pc = null; 
+        let myStream = null; 
+        let callId = null; 
+        let callType = null;
         const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         // Auth Logic
@@ -347,7 +343,7 @@
             }
         });
 
-        function switchTab(t) {
+        function switchAuthTab(t) {
             document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
             if(t==='login') document.querySelectorAll('.auth-tab')[0].classList.add('active');
             else document.querySelectorAll('.auth-tab')[1].classList.add('active');
@@ -398,7 +394,7 @@
             document.getElementById('myName').innerText = name;
             document.getElementById('myAvatar').innerText = name.charAt(0);
             closeModal('profileModal');
-            notify('Profile updated');
+            alert('Profile updated');
         }
         async function toggleStatus() {
             const online = document.getElementById('onlineCheck').checked;
@@ -511,14 +507,14 @@
 
         async function addFriend(toUid) {
             await db.ref('friendRequests').push({ from: me.uid, to: toUid, status: 'pending' });
-            notify('Request sent');
+            alert('Request sent');
             loadSearch();
         }
         async function acceptReq(uid, key) {
             const fid = [me.uid, uid].sort().join('_');
             await db.ref('friendRequests/'+key).remove();
             await db.ref('friendships/'+fid).set({ [me.uid]: {status:'accepted'}, [uid]: {status:'accepted'} });
-            notify('Friend added');
+            alert('Friend added');
             loadRequests();
         }
         async function rejectReq(key) {
@@ -537,6 +533,8 @@
             });
         }
 
+        let lastMsgTimestamp = 0; // To track history vs new messages
+
         async function openChat(uid) {
             const uSnap = await db.ref('users/'+uid).once('value');
             friend = { uid, ...uSnap.val() };
@@ -553,15 +551,22 @@
 
             if(window.innerWidth <= 768) document.getElementById('appContainer').classList.add('chat-open');
             
+            // Reset message box and load fresh
+            document.getElementById('msgBox').innerHTML = '';
+            lastMsgTimestamp = Date.now(); // Set threshold for "new" messages
+            
             loadMessages();
             listenTyping();
         }
+
         function goBack() {
             document.getElementById('appContainer').classList.remove('chat-open');
         }
 
         function loadMessages() {
-            db.ref('messages/'+chatId).orderByChild('timestamp').off();
+            // Clear previous listener
+            db.ref('messages/'+chatId).off();
+            
             db.ref('messages/'+chatId).orderByChild('timestamp').on('child_added', async snap => {
                 const msg = snap.val();
                 const msgId = snap.key;
@@ -571,28 +576,24 @@
                     db.ref('messages/'+chatId+'/'+msgId).update({status: 'seen'});
                 }
 
-                // Play sound if received message
-                if(msg.sender !== me.uid && msg.timestamp > (Date.now() - 5000)) {
+                // Play sound ONLY if it's a new incoming message
+                if(msg.sender !== me.uid && msg.timestamp > lastMsgTimestamp) {
                     playSound('message');
                 }
                 
                 renderMessage(msgId, msg);
             });
             
+            // Handle deletions/updates
             db.ref('messages/'+chatId).on('child_changed', snap => {
                 const msg = snap.val();
                 const msgId = snap.key;
                 const el = document.getElementById('msg-'+msgId);
-                if(el) {
-                    if(msg.deleted) {
-                        el.querySelector('.message-content').innerHTML = "Message deleted";
-                        el.classList.add('deleted');
-                    }
+                if(el && msg.deleted) {
+                    el.querySelector('.message-content').innerHTML = "Message deleted";
+                    el.classList.add('deleted');
                 }
             });
-            
-            // Clear box initially
-            document.getElementById('msgBox').innerHTML = '';
         }
 
         function renderMessage(id, msg) {
@@ -651,33 +652,38 @@
             });
         }
 
-        // Image Handling
-        function handleImageSelect(e) {
+        // Image Upload Fix
+        async function handleImageUpload(e) {
             const file = e.target.files[0];
-            if(!file) return;
+            if(!file || !chatId) return;
             
-            const reader = new FileReader();
-            reader.onload = async function(evt) {
-                // Simple upload logic
-                try {
-                    notify('Uploading...');
-                    const path = `chat/${chatId}/${Date.now()}_${file.name}`;
-                    const ref = storage.ref(path);
-                    await ref.put(file);
-                    const url = await ref.getDownloadURL();
-                    
-                    await db.ref('messages/'+chatId).push({
-                        sender: me.uid, image: url, text: '', timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent'
-                    });
-                    notify('Sent');
-                } catch(err) {
-                    console.error(err);
-                    notify('Upload failed');
-                }
-                e.target.value = ''; // Reset input
-            };
-            reader.readAsDataURL(file);
+            try {
+                alert('Uploading image...');
+                const path = `chat_images/${chatId}/${Date.now()}_${file.name}`;
+                const ref = storage.ref(path);
+                
+                // Upload
+                await ref.put(file);
+                // Get URL
+                const url = await ref.getDownloadURL();
+                
+                // Save Message
+                await db.ref('messages/'+chatId).push({
+                    sender: me.uid, 
+                    image: url, 
+                    text: '', 
+                    timestamp: firebase.database.ServerValue.TIMESTAMP, 
+                    status: 'sent'
+                });
+                
+                alert('Image sent!');
+            } catch(err) {
+                console.error(err);
+                alert('Image upload failed: ' + err.message);
+            }
+            e.target.value = ''; // Reset file input
         }
+
         function showImage(src) {
             document.getElementById('previewImg').src = src;
             openModal('imagePreviewModal');
@@ -695,60 +701,92 @@
             deleteTarget = null;
         }
 
-        // WebRTC Logic
+        // WebRTC Fix
+        function createPeerConnection() {
+            pc = new RTCPeerConnection(servers);
+            
+            // Add tracks
+            if(myStream) {
+                myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
+            }
+            
+            // Handle remote stream
+            pc.ontrack = (event) => {
+                console.log('Received remote track');
+                document.getElementById('remoteVid').srcObject = event.streams[0];
+            };
+            
+            return pc;
+        }
+
         async function startCall(type) {
             callType = type;
             callId = Date.now().toString();
             
             try {
+                // Get Media
                 myStream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
                 document.getElementById('localVid').srcObject = myStream;
                 openModal('callModal');
-                
-                // Save call info
-                await db.ref('calls/'+callId).set({
-                    caller: me.uid, callee: friend.uid, type, status: 'ringing',
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
-                
-                pc = new RTCPeerConnection(servers);
-                myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
-                
-                pc.ontrack = (e) => { document.getElementById('remoteVid').srcObject = e.streams[0]; };
-                
-                pc.onicecandidate = (e) => {
-                    if(e.candidate) db.ref(`calls/${callId}/callerCandidates`).push(e.candidate.toJSON());
+
+                // Create Peer Connection
+                createPeerConnection();
+
+                // ICE Candidate Handler
+                pc.onicecandidate = (event) => {
+                    if(event.candidate) {
+                        db.ref(`calls/${callId}/callerCandidates`).push(event.candidate.toJSON());
+                    }
                 };
-                
+
+                // Create Offer
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                
-                await db.ref(`calls/${callId}/offer`).set(offer.toJSON());
-                
-                // Listen for answer
-                db.ref(`calls/${callId}/answer`).on('value', async snap => {
-                    if(snap.val() && !pc.currentRemoteDescription) {
-                        await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
-                    }
-                });
-                
-                // Listen for callee ICE
-                db.ref(`calls/${callId}/calleeCandidates`).on('child_added', async snap => {
-                    if(snap.val()) await pc.addIceCandidate(new RTCIceCandidate(snap.val()));
+
+                // Save Call Data
+                await db.ref('calls/'+callId).set({
+                    caller: me.uid,
+                    callee: friend.uid,
+                    type: type,
+                    offer: { type: offer.type, sdp: offer.sdp },
+                    status: 'ringing',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-            } catch(e) { console.error(e); alert('Could not start call'); endCall(); }
+                // Listen for Answer
+                db.ref(`calls/${callId}/answer`).on('value', async (snapshot) => {
+                    const data = snapshot.val();
+                    if(data && !pc.currentRemoteDescription) {
+                        console.log("Received answer");
+                        await pc.setRemoteDescription(new RTCSessionDescription(data));
+                    }
+                });
+
+                // Listen for Callee Candidates
+                db.ref(`calls/${callId}/calleeCandidates`).on('child_added', async (snapshot) => {
+                    const data = snapshot.val();
+                    if(data) {
+                        await pc.addIceCandidate(new RTCIceCandidate(data));
+                    }
+                });
+
+            } catch(err) {
+                console.error("Call Start Error:", err);
+                alert("Could not start call: " + err.message);
+                endCall();
+            }
         }
 
         function listenCalls() {
             db.ref('calls').orderByChild('callee').equalTo(me.uid).on('child_added', async snap => {
                 const call = snap.val();
+                callId = snap.key;
+                
                 if(call.status === 'ringing') {
-                    callId = snap.key;
                     callType = call.type;
-                    // Get caller info
                     const uSnap = await db.ref('users/'+call.caller).once('value');
                     const caller = uSnap.val();
+                    
                     document.getElementById('callerName').innerText = caller.name;
                     document.getElementById('callTypeText').innerText = `Incoming ${call.type} call...`;
                     
@@ -761,38 +799,49 @@
         async function answerCall() {
             stopSound();
             closeModal('incomingModal');
+            
             try {
                 myStream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true });
                 document.getElementById('localVid').srcObject = myStream;
                 openModal('callModal');
-                
-                pc = new RTCPeerConnection(servers);
-                myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
-                
-                pc.ontrack = (e) => { document.getElementById('remoteVid').srcObject = e.streams[0]; };
-                pc.onicecandidate = (e) => {
-                    if(e.candidate) db.ref(`calls/${callId}/calleeCandidates`).push(e.candidate.toJSON());
+
+                createPeerConnection();
+
+                // ICE Candidate Handler
+                pc.onicecandidate = (event) => {
+                    if(event.candidate) {
+                        db.ref(`calls/${callId}/calleeCandidates`).push(event.candidate.toJSON());
+                    }
                 };
-                
+
                 // Get Offer
-                const cSnap = await db.ref(`calls/${callId}/offer`).once('value');
-                if(cSnap.val()) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(cSnap.val()));
+                const callSnap = await db.ref(`calls/${callId}`).once('value');
+                const callData = callSnap.val();
+
+                if(callData.offer) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
                     
+                    // Create Answer
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
                     
-                    await db.ref(`calls/${callId}/answer`).set(answer.toJSON());
+                    await db.ref(`calls/${callId}/answer`).set({ type: answer.type, sdp: answer.sdp });
+                    await db.ref(`calls/${callId}`).update({status: 'connected'});
                 }
-                
-                // Listen for caller ICE
-                db.ref(`calls/${callId}/callerCandidates`).on('child_added', async snap => {
-                    if(snap.val()) await pc.addIceCandidate(new RTCIceCandidate(snap.val()));
-                });
-                
-                await db.ref(`calls/${callId}`).update({status: 'connected'});
 
-            } catch(e) { console.error(e); alert('Could not answer'); endCall(); }
+                // Listen for Caller Candidates
+                db.ref(`calls/${callId}/callerCandidates`).on('child_added', async (snapshot) => {
+                    const data = snapshot.val();
+                    if(data) {
+                        await pc.addIceCandidate(new RTCIceCandidate(data));
+                    }
+                });
+
+            } catch(err) {
+                console.error("Answer Error:", err);
+                alert("Could not answer call");
+                endCall();
+            }
         }
 
         async function rejectCall() {
@@ -813,19 +862,33 @@
         }
 
         function toggleMic() { if(myStream) myStream.getAudioTracks()[0].enabled = !myStream.getAudioTracks()[0].enabled; }
-        function toggleCam() { if(myStream) myStream.getVideoTracks()[0].enabled = !myStream.getVideoTracks()[0].enabled; }
+        function toggleCam() { if(myStream && myStream.getVideoTracks().length > 0) myStream.getVideoTracks()[0].enabled = !myStream.getVideoTracks()[0].enabled; }
 
         // Utilities
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-        function notify(msg) { alert(msg); } // Simple alert for demo
+        
         function playSound(type) {
             try {
-                if(type === 'message') { msgSound.currentTime = 0; msgSound.play(); }
-                if(type === 'ring') { ringSound.currentTime = 0; ringSound.play(); }
-            } catch(e) { console.log("Audio blocked", e); }
+                if(type === 'message') {
+                    const audio = document.getElementById('msgSound');
+                    audio.currentTime = 0;
+                    audio.play().catch(e => console.log("Audio play blocked", e));
+                }
+                if(type === 'ring') {
+                    const audio = document.getElementById('ringSound');
+                    audio.currentTime = 0;
+                    audio.play().catch(e => console.log("Audio play blocked", e));
+                }
+            } catch(e) {}
         }
-        function stopSound() { try { ringSound.pause(); } catch(e){} }
+        function stopSound() { 
+            try {
+                const audio = document.getElementById('ringSound');
+                audio.pause(); 
+                audio.currentTime = 0; 
+            } catch(e){} 
+        }
     </script>
 </body>
 </html>
