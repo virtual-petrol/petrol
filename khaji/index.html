@@ -277,7 +277,7 @@
             <div class="app-container" id="appContainer">
                 <!-- Sidebar -->
                 <div class="sidebar">
-                    <!-- Profile Header: Now opens modal on click -->
+                    <!-- Profile Header -->
                     <div class="user-profile" onclick="openModal('profileModal')">
                         <div class="avatar" id="myAvatar">U</div>
                         <div class="user-info">
@@ -287,7 +287,6 @@
                                 <label for="onlineCheck" style="font-size:11px; color:#666;">Online</label>
                             </div>
                         </div>
-                        <!-- Settings Icon instead of direct logout -->
                         <div style="font-size: 20px; opacity: 0.6;">⚙️</div>
                     </div>
                     
@@ -341,7 +340,6 @@
             
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
             
-            <!-- Logout Button Moved Here -->
             <button class="modal-save-btn" style="background: #ff4757;" onclick="logout()">Logout</button>
         </div>
     </div>
@@ -510,10 +508,16 @@
                 }
 
                 // User is verified, proceed to app
+                // Force update DB verified status just in case
+                await db.ref('users/'+user.uid).update({ verified: true, online: true });
+
+                const snap = await db.ref('users/'+user.uid).once('value');
+                const dbUser = snap.val();
+
                 me = { uid: user.uid, name: user.displayName || "User", email: user.email };
                 
                 // Update DB presence
-                await db.ref('users/'+me.uid).update({ name: me.name, email: me.email, online: true });
+                await db.ref('users/'+me.uid).update({ name: me.name, email: me.email });
                 db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
                 db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
                 
@@ -563,7 +567,6 @@
         async function login() {
             try { 
                 const userCred = await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value);
-                // Check verification status manually to show toast if not verified
                 if(userCred.user && !userCred.user.emailVerified) {
                     showToast("Please verify your email to login.", 'error');
                 } else {
@@ -587,19 +590,21 @@
 
                 const cred = await auth.createUserWithEmailAndPassword(document.getElementById('regEmail').value, document.getElementById('regPass').value);
                 
-                // Update Profile
+                // Update Profile in Auth
                 await cred.user.updateProfile({ displayName: name });
                 
                 // Send Verification Email
                 await cred.user.sendEmailVerification();
                 
-                // Save to DB
+                // Save to DB with verified: false
+                // This user will NOT show up in search until verified is true
                 await db.ref('users/'+cred.user.uid).set({ 
                     name, 
                     email: cred.user.email, 
                     online: false, 
                     bio: '', 
-                    status: 'Hey there!' 
+                    status: 'Hey there!',
+                    verified: false 
                 });
 
                 showToast("Registration successful! Please check your email for verification.", 'success');
@@ -638,14 +643,18 @@
             }
         }
 
-        // Fixed Refresh Logic
+        // Verification Check Logic
         async function checkVerification() {
             try {
                 if(auth.currentUser) {
                     await auth.currentUser.reload();
                     if(auth.currentUser.emailVerified) {
                         showToast("Email Verified! Logging in...", "success");
-                        // Manually trigger the app setup since onAuthStateChanged might not fire immediately on reload
+                        
+                        // UPDATE DATABASE: Set verified to true
+                        await db.ref('users/'+auth.currentUser.uid).update({ verified: true });
+
+                        // Manually trigger the app setup
                         me = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || "User", email: auth.currentUser.email };
                 
                         await db.ref('users/'+me.uid).update({ name: me.name, email: me.email, online: true });
@@ -789,8 +798,17 @@
             const pendingIds = [];
             Object.keys(rs).forEach(k => pendingIds.push(rs[k].to));
             const list = [];
+            
+            // Filter Logic
             Object.keys(users).forEach(uid => {
-                if(uid !== me.uid && !friendIds.includes(uid) && !pendingIds.includes(uid)) list.push({uid, ...users[uid]});
+                const u = users[uid];
+                // 1. Not me
+                // 2. Not already a friend
+                // 3. Not already requested
+                // 4. MUST BE VERIFIED (u.verified === true)
+                if(uid !== me.uid && !friendIds.includes(uid) && !pendingIds.includes(uid) && u.verified === true) {
+                    list.push({uid, ...u});
+                }
             });
             renderSearch(list);
         }
