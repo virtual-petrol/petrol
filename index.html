@@ -63,11 +63,30 @@
         .tab { flex: 1; padding: 12px 5px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; }
         .tab.active { color: #667eea; border-bottom: 2px solid #667eea; }
         .tab-content { flex: 1; overflow-y: auto; }
-        .user-item { padding: 12px 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        
+        /* User Item Styles */
+        .user-item { padding: 12px 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; position: relative; }
         .user-item:hover { background: #f0f0f0; }
         .user-item.active { background: #e8eaff; }
         .user-status { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; margin-left: auto; }
         .user-status.offline { background: #ccc; }
+        
+        /* Unread Message Badge */
+        .unread-badge {
+            background: #ff4757;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .user-item.has-unread h4 { font-weight: 800; color: #333; }
+        .user-item.has-unread p { font-weight: 600; color: #444; }
+
         .friend-request-badge { background: #ff4757; color: white; border-radius: 10px; padding: 1px 6px; font-size: 10px; margin-left: 5px; }
         .action-btn-sm { border: none; padding: 5px 10px; border-radius: 15px; font-size: 11px; cursor: pointer; margin-left: 5px; }
         .accept-sm { background: #4caf50; color: white; }
@@ -120,12 +139,14 @@
         
         /* Video Call UI */
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
+        
+        /* Mobile Video Grid: Stack vertically */
         .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; align-items: center; position: relative; }
         
-        /* Call Status Overlay (Ringing, etc) */
+        /* Call Status Overlay */
         .call-status-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 10; color: white;
         }
         .call-status-overlay h2 { margin-bottom: 10px; }
@@ -134,8 +155,14 @@
         .video-box { position: relative; background: #000; border-radius: 10px; overflow: hidden; min-height: 150px; display: flex; align-items: center; justify-content: center; }
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
         .video-label { position: absolute; bottom: 5px; left: 5px; color: white; font-size: 12px; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 10px; }
-        .call-controls { padding: 15px; display: flex; justify-content: center; gap: 20px; background: #000; }
-        .control-btn { width: 45px; height: 45px; border-radius: 50%; border: none; font-size: 18px; cursor: pointer; background: #444; color: white; }
+        
+        /* Call Controls */
+        .call-controls { 
+            padding: 15px; display: flex; justify-content: center; gap: 20px; 
+            background: rgba(0,0,0,0.8); position: absolute; bottom: 0; left: 0; width: 100%; 
+            z-index: 20;
+        }
+        .control-btn { width: 50px; height: 50px; border-radius: 50%; border: none; font-size: 20px; cursor: pointer; background: rgba(255,255,255,0.2); color: white; display: flex; align-items: center; justify-content: center;}
         .control-btn.end { background: #ff4757; }
 
         .incoming-call-ui { text-align: center; padding: 30px; }
@@ -151,7 +178,15 @@
             .app-container.chat-open .main-content { transform: translateX(0); }
             .back-btn { display: block; }
             .call-btn { padding: 8px; }
-            .video-grid { grid-template-columns: 1fr; }
+            
+            /* Video Grid on Mobile: Full screen for remote, small for local */
+            .video-grid { grid-template-columns: 1fr; padding: 0; }
+            .video-box { border-radius: 0; }
+            .video-box#localVideoBox { 
+                position: absolute; top: 20px; right: 20px; width: 100px; height: 140px; 
+                border-radius: 10px; border: 2px solid white; z-index: 5;
+            }
+            .video-box#remoteVideoBox { height: 100%; }
         }
     </style>
 </head>
@@ -288,13 +323,13 @@
                 <p id="overlayStatus">Ringing</p>
             </div>
 
-            <div class="video-box">
-                <video id="localVid" autoplay muted playsinline></video>
-                <div class="video-label">You</div>
-            </div>
-            <div class="video-box">
+            <div class="video-box" id="remoteVideoBox">
                 <video id="remoteVid" autoplay playsinline></video>
                 <div class="video-label" id="remoteLabel">Friend</div>
+            </div>
+            <div class="video-box" id="localVideoBox">
+                <video id="localVid" autoplay muted playsinline></video>
+                <div class="video-label">You</div>
             </div>
         </div>
         <div class="call-controls">
@@ -337,7 +372,8 @@
         let currentTab = 'friends';
         let deleteTarget = null;
         let typingTimer = null;
-        
+        let unreadCounts = {}; // Track unread messages locally { uid: count }
+
         // WebRTC State
         let pc = null; 
         let myStream = null; 
@@ -348,6 +384,7 @@
         // Call Time Tracking
         let callStartTime = null;
         let callStatusListener = null;
+        let globalMsgListener = null; // For background notifications
 
         // Auth Logic
         auth.onAuthStateChanged(async user => {
@@ -432,6 +469,31 @@
             else loadSearch();
         }
 
+        // --- Background Message Listener Setup ---
+        function setupGlobalListeners(friendIds) {
+            if(globalMsgListener) db.ref('messages').off('child_added', globalMsgListener); // Cleanup old
+            
+            friendIds.forEach(uid => {
+                const cid = [me.uid, uid].sort().join('_');
+                // Listen for new messages in each chat room
+                db.ref('messages/'+cid).orderByChild('timestamp').limitToLast(1).on('child_added', snap => {
+                    const msg = snap.val();
+                    // Logic: If message is not from me AND chat is not currently open
+                    if(msg.sender !== me.uid) {
+                        if(chatId !== cid) {
+                            // Play Sound
+                            playSound('message');
+                            // Update Unread Count
+                            if(!unreadCounts[uid]) unreadCounts[uid] = 0;
+                            unreadCounts[uid]++;
+                            // Refresh Sidebar if on friends tab
+                            if(currentTab === 'friends') loadFriends();
+                        }
+                    }
+                });
+            });
+        }
+
         async function loadFriends() {
             const snap = await db.ref('friendships').orderByChild(me.uid+'/status').equalTo('accepted').once('value');
             const data = snap.val() || {};
@@ -440,6 +502,10 @@
                 const f = data[k];
                 if(f[me.uid]) ids.push(Object.keys(f).find(x => x !== me.uid));
             });
+            
+            // Setup global listeners for notifications (only once)
+            setupGlobalListeners(ids);
+            
             renderUsers(ids, 'friends');
         }
 
@@ -489,11 +555,16 @@
                 const u = uSnap.val();
                 if(!u) continue;
                 const status = u.online ? '' : 'offline';
+                const unread = unreadCounts[uid] || 0;
+                const unreadClass = unread > 0 ? 'has-unread' : '';
+                const unreadBadgeHtml = unread > 0 ? `<div class="unread-badge">${unread}</div>` : '';
+
                 if(type === 'friends') {
-                    html += `<div class="user-item" onclick="openChat('${uid}')">
+                    html += `<div class="user-item ${unreadClass}" onclick="openChat('${uid}')">
                         <div class="avatar">${(u.name||'U').charAt(0)}</div>
                         <div><h4>${u.name}</h4><p style="font-size:11px;color:#888">${u.status||''}</p></div>
                         <div class="user-status ${status}"></div>
+                        ${unreadBadgeHtml}
                     </div>`;
                 } else if(type === 'requests') {
                     html += `<div class="user-item">
@@ -559,6 +630,9 @@
             friend = { uid, ...uSnap.val() };
             chatId = [me.uid, friend.uid].sort().join('_');
             
+            // Clear unread count for this user
+            unreadCounts[uid] = 0;
+            
             document.getElementById('chatAvatar').innerText = (friend.name||'U').charAt(0);
             document.getElementById('chatName').innerText = friend.name;
             document.getElementById('msgInput').disabled = false;
@@ -575,6 +649,7 @@
             
             loadMessages();
             listenTyping();
+            loadFriends(); // Refresh sidebar to remove bold/badge
         }
 
         function goBack() {
@@ -590,10 +665,6 @@
                 
                 if(msg.sender !== me.uid && msg.status !== 'seen') {
                     db.ref('messages/'+chatId+'/'+msgId).update({status: 'seen'});
-                }
-
-                if(msg.sender !== me.uid && msg.timestamp > lastMsgTimestamp) {
-                    playSound('message');
                 }
                 
                 renderMessage(msgId, msg);
@@ -728,7 +799,6 @@
             return pc;
         }
 
-        // Show Overlay for "Calling..." or "Connected"
         function setCallUI(status, text) {
             const overlay = document.getElementById('callStatusOverlay');
             const title = document.getElementById('overlayTitle');
@@ -739,9 +809,7 @@
                 title.innerText = "Calling " + friend.name;
                 statusText.innerText = "Ringing...";
             } else if (status === 'connected') {
-                overlay.style.display = 'none'; // Hide overlay
-            } else if (status === 'ended') {
-                // Handled by endCall
+                overlay.style.display = 'none';
             }
         }
 
@@ -752,10 +820,10 @@
             try {
                 myStream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
                 document.getElementById('localVid').srcObject = myStream;
-                document.getElementById('remoteLabel').innerText = friend.name; // Set Friend Name
+                document.getElementById('remoteLabel').innerText = friend.name; 
                 
                 openModal('callModal');
-                setCallUI('calling'); // Show "Calling..." overlay
+                setCallUI('calling'); 
 
                 createPeerConnection();
                 
@@ -772,10 +840,8 @@
                     status: 'ringing', timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                // Listen for Call Status Changes (Connected, Ended)
                 listenForCallStatus();
 
-                // ICE & Answer Listeners
                 db.ref(`calls/${callId}/answer`).on('value', async (snapshot) => {
                     const data = snapshot.val();
                     if(data && !pc.currentRemoteDescription) {
@@ -788,14 +854,13 @@
 
             } catch(err) {
                 alert("Could not start call: " + err.message);
-                endCall(true); // Force cleanup without notifying DB again
+                endCall(true); 
             }
         }
 
         function listenCalls() {
             db.ref('calls').orderByChild('callee').equalTo(me.uid).on('child_added', async snap => {
                 const call = snap.val();
-                // Only process if ringing and not already handled
                 if(call.status === 'ringing') {
                     callId = snap.key;
                     callType = call.type;
@@ -820,14 +885,13 @@
                 myStream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true });
                 document.getElementById('localVid').srcObject = myStream;
                 
-                // Get Caller Info for Label
                 const callSnap = await db.ref('calls/'+callId).once('value');
                 const callerId = callSnap.val().caller;
                 const uSnap = await db.ref('users/'+callerId).once('value');
                 document.getElementById('remoteLabel').innerText = uSnap.val().name;
 
                 openModal('callModal');
-                setCallUI('connected'); // Directly show connected UI
+                setCallUI('connected'); 
                 
                 createPeerConnection();
 
@@ -848,7 +912,6 @@
                     if(snapshot.val()) await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
                 });
 
-                // Listen for End Call
                 listenForCallStatus();
 
             } catch(err) {
@@ -857,7 +920,6 @@
             }
         }
 
-        // Listen for status changes in DB (Connected -> Start Timer, Ended -> Hangup)
         function listenForCallStatus() {
             if(callStatusListener) db.ref('calls/'+callId).off('value', callStatusListener);
             
@@ -867,19 +929,17 @@
 
                 if(data.status === 'connected') {
                     callStartTime = Date.now();
-                    setCallUI('connected'); // Hide overlay
+                    setCallUI('connected');
                 }
                 
-                // If status ended/rejected by OTHER user, close local UI
-                if((data.status === 'ended' || data.status === 'rejected') && data.status !== 'connected') {
-                    endCall(true); // true = isRemoteEnd
+                // If status ended/rejected (Sync End)
+                if(data.status === 'ended' || data.status === 'rejected') {
+                    endCall(true); 
                 }
             });
         }
 
-        // isRemoteEnd: true if triggered by DB update, false if triggered by local button click
         async function endCall(isRemoteEnd) {
-            // Calculate Duration
             let durationStr = "";
             if (callStartTime) {
                 const diff = Math.floor((Date.now() - callStartTime) / 1000);
@@ -890,7 +950,6 @@
                 durationStr = "Call ended";
             }
 
-            // Cleanup UI
             closeModal('callModal');
             closeModal('incomingModal');
             stopSound();
@@ -898,18 +957,16 @@
             if(pc) { pc.close(); pc = null; }
             if(myStream) { myStream.getTracks().forEach(t => t.stop()); myStream = null; }
             
-            // Update DB only if I initiated the end
             if(!isRemoteEnd && callId) {
                 await db.ref('calls/'+callId).update({status: 'ended'});
             }
             
-            // Detach listener
             if(callStatusListener) db.ref('calls/'+callId).off('value', callStatusListener);
             
             callStartTime = null;
             callId = null;
             
-            alert(durationStr);
+            if(!isRemoteEnd) alert(durationStr);
         }
 
         async function rejectCall() {
@@ -922,7 +979,6 @@
         function toggleMic() { if(myStream) myStream.getAudioTracks()[0].enabled = !myStream.getAudioTracks()[0].enabled; }
         function toggleCam() { if(myStream && myStream.getVideoTracks().length > 0) myStream.getVideoTracks()[0].enabled = !myStream.getVideoTracks()[0].enabled; }
 
-        // Utilities
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
         
