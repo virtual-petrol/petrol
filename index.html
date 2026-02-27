@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- Favicon for Web Tab -->
+    <link rel="icon" type="image/png" href="Khaji.png">
+    
     <title>ConnectChat</title>
+    
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
@@ -40,6 +45,18 @@
         /* Auth Section */
         .auth-section { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; }
         .auth-section h1 { color: white; margin-bottom: 30px; }
+        
+        /* Logo Style */
+        .auth-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background: white;
+        }
+
         .auth-form { width: 100%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
         .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
         .auth-tab { flex: 1; padding: 10px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; }
@@ -55,7 +72,8 @@
         /* Sidebar */
         .sidebar { width: 300px; background: #f9f9f9; border-right: 1px solid #eee; display: flex; flex-direction: column; flex-shrink: 0; height: 100%; }
         .user-profile { padding: 15px; background: white; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; }
-        .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; overflow: hidden; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
         .user-info { flex: 1; overflow: hidden; }
         .user-info h3 { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .logout-btn { background: none; border: none; font-size: 18px; cursor: pointer; opacity: 0.6; }
@@ -139,8 +157,6 @@
         
         /* Video Call UI */
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
-        
-        /* Mobile Video Grid: Stack vertically */
         .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; align-items: center; position: relative; }
         
         /* Call Status Overlay */
@@ -179,7 +195,7 @@
             .back-btn { display: block; }
             .call-btn { padding: 8px; }
             
-            /* Video Grid on Mobile: Full screen for remote, small for local */
+            /* Video Grid on Mobile */
             .video-grid { grid-template-columns: 1fr; padding: 0; }
             .video-box { border-radius: 0; }
             .video-box#localVideoBox { 
@@ -198,7 +214,9 @@
     <div class="container">
         <!-- Auth -->
         <div class="auth-section" id="authSection">
-            <h1>🤝 ConnectChat</h1>
+            <!-- Added Image Logo Here -->
+            <img src="Khaji.png" class="auth-logo" alt="Logo">
+            <h1>ConnectChat</h1>
             <div class="auth-form">
                 <div class="auth-tabs">
                     <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
@@ -317,7 +335,7 @@
     <!-- Video Call UI -->
     <div class="video-modal" id="callModal">
         <div class="video-grid">
-            <!-- Status Overlay (Hidden by default) -->
+            <!-- Status Overlay -->
             <div id="callStatusOverlay" class="call-status-overlay" style="display:none;">
                 <h2 id="overlayTitle">Calling...</h2>
                 <p id="overlayStatus">Ringing</p>
@@ -372,7 +390,7 @@
         let currentTab = 'friends';
         let deleteTarget = null;
         let typingTimer = null;
-        let unreadCounts = {}; // Track unread messages locally { uid: count }
+        let unreadCounts = {}; 
 
         // WebRTC State
         let pc = null; 
@@ -384,7 +402,7 @@
         // Call Time Tracking
         let callStartTime = null;
         let callStatusListener = null;
-        let globalMsgListener = null; // For background notifications
+        let globalMsgListener = null; 
 
         // Auth Logic
         auth.onAuthStateChanged(async user => {
@@ -471,22 +489,17 @@
 
         // --- Background Message Listener Setup ---
         function setupGlobalListeners(friendIds) {
-            if(globalMsgListener) db.ref('messages').off('child_added', globalMsgListener); // Cleanup old
+            if(globalMsgListener) db.ref('messages').off('child_added', globalMsgListener);
             
             friendIds.forEach(uid => {
                 const cid = [me.uid, uid].sort().join('_');
-                // Listen for new messages in each chat room
                 db.ref('messages/'+cid).orderByChild('timestamp').limitToLast(1).on('child_added', snap => {
                     const msg = snap.val();
-                    // Logic: If message is not from me AND chat is not currently open
                     if(msg.sender !== me.uid) {
                         if(chatId !== cid) {
-                            // Play Sound
                             playSound('message');
-                            // Update Unread Count
                             if(!unreadCounts[uid]) unreadCounts[uid] = 0;
                             unreadCounts[uid]++;
-                            // Refresh Sidebar if on friends tab
                             if(currentTab === 'friends') loadFriends();
                         }
                     }
@@ -503,9 +516,7 @@
                 if(f[me.uid]) ids.push(Object.keys(f).find(x => x !== me.uid));
             });
             
-            // Setup global listeners for notifications (only once)
             setupGlobalListeners(ids);
-            
             renderUsers(ids, 'friends');
         }
 
@@ -630,7 +641,6 @@
             friend = { uid, ...uSnap.val() };
             chatId = [me.uid, friend.uid].sort().join('_');
             
-            // Clear unread count for this user
             unreadCounts[uid] = 0;
             
             document.getElementById('chatAvatar').innerText = (friend.name||'U').charAt(0);
@@ -649,7 +659,7 @@
             
             loadMessages();
             listenTyping();
-            loadFriends(); // Refresh sidebar to remove bold/badge
+            loadFriends(); 
         }
 
         function goBack() {
@@ -932,7 +942,6 @@
                     setCallUI('connected');
                 }
                 
-                // If status ended/rejected (Sync End)
                 if(data.status === 'ended' || data.status === 'rejected') {
                     endCall(true); 
                 }
