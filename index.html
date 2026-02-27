@@ -79,7 +79,7 @@
         .chat-header { padding: 10px 15px; background: white; border-bottom: 1px solid #eee; display: flex; align-items: center; height: 60px; flex-shrink: 0; }
         .back-btn { display: none; background: none; border: none; font-size: 20px; margin-right: 10px; cursor: pointer; }
         .chat-user-info { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; min-width: 0; }
-        .typing-indicator { font-size: 11px; color: #667eea; font-style: italic; margin-top: 2px; }
+        .typing-indicator { font-size: 11px; color: #667eea; font-style: italic; margin-top: 2px; display: none; }
         .call-btns { display: flex; gap: 5px; }
         .call-btn { border: none; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-size: 14px; color: white; }
         .video-btn { background: #4caf50; }
@@ -94,8 +94,10 @@
         .message.sent .message-content { background: #667eea; color: white; border-bottom-right-radius: 2px; }
         .message.received .message-content { background: white; border: 1px solid #eee; border-bottom-left-radius: 2px; }
         .message.deleted .message-content { background: #f0f0f0; color: #aaa; font-style: italic; border: none; }
-        .message-time { font-size: 9px; opacity: 0.7; margin-top: 4px; text-align: right; }
+        .message-time { font-size: 9px; opacity: 0.7; margin-top: 4px; text-align: right; display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
         .message.sent .message-time { color: rgba(255,255,255,0.8); }
+        .status-tick { font-size: 10px; }
+        .status-tick.seen { color: #4fc3f7; }
         .message-img { max-width: 100%; max-height: 200px; border-radius: 10px; margin-bottom: 5px; cursor: pointer; display: block; }
         .msg-actions { position: absolute; top: -5px; right: -5px; background: white; border-radius: 10px; padding: 2px; display: none; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .message:hover .msg-actions { display: block; }
@@ -116,9 +118,19 @@
         .modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; }
         .modal-save-btn { width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
         
-        /* Video Call */
+        /* Video Call UI */
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
-        .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; align-items: center; }
+        .video-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; align-items: center; position: relative; }
+        
+        /* Call Status Overlay (Ringing, etc) */
+        .call-status-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10; color: white;
+        }
+        .call-status-overlay h2 { margin-bottom: 10px; }
+        .call-status-overlay p { opacity: 0.8; }
+
         .video-box { position: relative; background: #000; border-radius: 10px; overflow: hidden; min-height: 150px; display: flex; align-items: center; justify-content: center; }
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
         .video-label { position: absolute; bottom: 5px; left: 5px; color: white; font-size: 12px; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 10px; }
@@ -203,7 +215,7 @@
                             <div class="avatar" id="chatAvatar">?</div>
                             <div style="min-width:0">
                                 <h3 id="chatName" style="font-size:15px;">Select Friend</h3>
-                                <div class="typing-indicator" id="typingDiv" style="display:none;">typing...</div>
+                                <div class="typing-indicator" id="typingDiv">typing...</div>
                             </div>
                         </div>
                         <div class="call-btns">
@@ -270,19 +282,25 @@
     <!-- Video Call UI -->
     <div class="video-modal" id="callModal">
         <div class="video-grid">
+            <!-- Status Overlay (Hidden by default) -->
+            <div id="callStatusOverlay" class="call-status-overlay" style="display:none;">
+                <h2 id="overlayTitle">Calling...</h2>
+                <p id="overlayStatus">Ringing</p>
+            </div>
+
             <div class="video-box">
                 <video id="localVid" autoplay muted playsinline></video>
                 <div class="video-label">You</div>
             </div>
             <div class="video-box">
                 <video id="remoteVid" autoplay playsinline></video>
-                <div class="video-label" id="remoteLabel">Remote</div>
+                <div class="video-label" id="remoteLabel">Friend</div>
             </div>
         </div>
         <div class="call-controls">
             <button class="control-btn" onclick="toggleMic()">🎤</button>
             <button class="control-btn" onclick="toggleCam()">📹</button>
-            <button class="control-btn end" onclick="endCall()">📞</button>
+            <button class="control-btn end" onclick="endCall(false)">📞</button>
         </div>
     </div>
 
@@ -326,6 +344,10 @@
         let callId = null; 
         let callType = null;
         const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        // Call Time Tracking
+        let callStartTime = null;
+        let callStatusListener = null;
 
         // Auth Logic
         auth.onAuthStateChanged(async user => {
@@ -405,7 +427,6 @@
             currentTab = t;
             document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
             document.getElementById('tab'+t.charAt(0).toUpperCase() + t.slice(1)).classList.add('active');
-            
             if(t==='friends') loadFriends();
             else if(t==='requests') loadRequests();
             else loadSearch();
@@ -445,12 +466,10 @@
             const fs = fSnap.val() || {};
             const friendIds = [];
             Object.keys(fs).forEach(k => { if(fs[k][me.uid]) friendIds.push(Object.keys(fs[k]).find(x => x !== me.uid)); });
-            
             const rSnap = await db.ref('friendRequests').orderByChild('from').equalTo(me.uid).once('value');
             const rs = rSnap.val() || {};
             const pendingIds = [];
             Object.keys(rs).forEach(k => pendingIds.push(rs[k].to));
-
             const list = [];
             Object.keys(users).forEach(uid => {
                 if(uid !== me.uid && !friendIds.includes(uid) && !pendingIds.includes(uid)) list.push({uid, ...users[uid]});
@@ -533,7 +552,7 @@
             });
         }
 
-        let lastMsgTimestamp = 0; // To track history vs new messages
+        let lastMsgTimestamp = 0; 
 
         async function openChat(uid) {
             const uSnap = await db.ref('users/'+uid).once('value');
@@ -551,9 +570,8 @@
 
             if(window.innerWidth <= 768) document.getElementById('appContainer').classList.add('chat-open');
             
-            // Reset message box and load fresh
             document.getElementById('msgBox').innerHTML = '';
-            lastMsgTimestamp = Date.now(); // Set threshold for "new" messages
+            lastMsgTimestamp = Date.now(); 
             
             loadMessages();
             listenTyping();
@@ -564,19 +582,16 @@
         }
 
         function loadMessages() {
-            // Clear previous listener
             db.ref('messages/'+chatId).off();
             
             db.ref('messages/'+chatId).orderByChild('timestamp').on('child_added', async snap => {
                 const msg = snap.val();
                 const msgId = snap.key;
                 
-                // Mark as seen
                 if(msg.sender !== me.uid && msg.status !== 'seen') {
                     db.ref('messages/'+chatId+'/'+msgId).update({status: 'seen'});
                 }
 
-                // Play sound ONLY if it's a new incoming message
                 if(msg.sender !== me.uid && msg.timestamp > lastMsgTimestamp) {
                     playSound('message');
                 }
@@ -584,14 +599,21 @@
                 renderMessage(msgId, msg);
             });
             
-            // Handle deletions/updates
             db.ref('messages/'+chatId).on('child_changed', snap => {
                 const msg = snap.val();
                 const msgId = snap.key;
                 const el = document.getElementById('msg-'+msgId);
-                if(el && msg.deleted) {
-                    el.querySelector('.message-content').innerHTML = "Message deleted";
-                    el.classList.add('deleted');
+                if(el) {
+                    if(msg.deleted) {
+                        el.querySelector('.message-content').innerHTML = "Message deleted";
+                        el.classList.add('deleted');
+                    } else if (msg.status === 'seen' && msg.sender === me.uid) {
+                        const statusEl = el.querySelector('.status-tick');
+                        if(statusEl) {
+                            statusEl.innerHTML = '✓✓';
+                            statusEl.classList.add('seen');
+                        }
+                    }
                 }
             });
         }
@@ -615,10 +637,14 @@
             }
             
             const time = new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            const status = sent ? (msg.status === 'seen' ? '✓✓' : '✓') : '';
+            let statusHtml = '';
+            if(sent) {
+                if(msg.status === 'seen') statusHtml = '<span class="status-tick seen">✓✓</span>';
+                else statusHtml = '<span class="status-tick">✓</span>';
+            }
             
             div.innerHTML = `${content}
-                <div class="message-time">${time} ${status} ${sent ? `<span class="msg-actions"><button class="del-btn" onclick="deleteMsg('${id}')">🗑️</button></span>` : ''}</div>`;
+                <div class="message-time">${time} ${statusHtml} ${sent ? `<span class="msg-actions"><button class="del-btn" onclick="deleteMsg('${id}')">🗑️</button></span>` : ''}</div>`;
             
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
@@ -643,7 +669,9 @@
             clearTimeout(typingTimer);
             typingTimer = setTimeout(() => db.ref('typing/'+chatId+'/'+me.uid).remove(), 2000);
         }
+        
         function listenTyping() {
+            if(!chatId) return;
             db.ref('typing/'+chatId).on('value', snap => {
                 const data = snap.val();
                 const div = document.getElementById('typingDiv');
@@ -652,36 +680,24 @@
             });
         }
 
-        // Image Upload Fix
         async function handleImageUpload(e) {
             const file = e.target.files[0];
             if(!file || !chatId) return;
-            
             try {
                 alert('Uploading image...');
                 const path = `chat_images/${chatId}/${Date.now()}_${file.name}`;
                 const ref = storage.ref(path);
-                
-                // Upload
                 await ref.put(file);
-                // Get URL
                 const url = await ref.getDownloadURL();
-                
-                // Save Message
                 await db.ref('messages/'+chatId).push({
-                    sender: me.uid, 
-                    image: url, 
-                    text: '', 
-                    timestamp: firebase.database.ServerValue.TIMESTAMP, 
-                    status: 'sent'
+                    sender: me.uid, image: url, text: '', timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent'
                 });
-                
                 alert('Image sent!');
             } catch(err) {
                 console.error(err);
                 alert('Image upload failed: ' + err.message);
             }
-            e.target.value = ''; // Reset file input
+            e.target.value = '';
         }
 
         function showImage(src) {
@@ -689,7 +705,6 @@
             openModal('imagePreviewModal');
         }
 
-        // Delete Message
         function deleteMsg(id) {
             deleteTarget = id;
             openModal('deleteModal');
@@ -701,22 +716,33 @@
             deleteTarget = null;
         }
 
-        // WebRTC Fix
+        /* --- WEBRTC CALL LOGIC --- */
+        
         function createPeerConnection() {
             pc = new RTCPeerConnection(servers);
+            if(myStream) myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
             
-            // Add tracks
-            if(myStream) {
-                myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
-            }
-            
-            // Handle remote stream
             pc.ontrack = (event) => {
-                console.log('Received remote track');
                 document.getElementById('remoteVid').srcObject = event.streams[0];
             };
-            
             return pc;
+        }
+
+        // Show Overlay for "Calling..." or "Connected"
+        function setCallUI(status, text) {
+            const overlay = document.getElementById('callStatusOverlay');
+            const title = document.getElementById('overlayTitle');
+            const statusText = document.getElementById('overlayStatus');
+
+            if (status === 'calling') {
+                overlay.style.display = 'flex';
+                title.innerText = "Calling " + friend.name;
+                statusText.innerText = "Ringing...";
+            } else if (status === 'connected') {
+                overlay.style.display = 'none'; // Hide overlay
+            } else if (status === 'ended') {
+                // Handled by endCall
+            }
         }
 
         async function startCall(type) {
@@ -724,66 +750,56 @@
             callId = Date.now().toString();
             
             try {
-                // Get Media
                 myStream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
                 document.getElementById('localVid').srcObject = myStream;
+                document.getElementById('remoteLabel').innerText = friend.name; // Set Friend Name
+                
                 openModal('callModal');
+                setCallUI('calling'); // Show "Calling..." overlay
 
-                // Create Peer Connection
                 createPeerConnection();
-
-                // ICE Candidate Handler
+                
                 pc.onicecandidate = (event) => {
-                    if(event.candidate) {
-                        db.ref(`calls/${callId}/callerCandidates`).push(event.candidate.toJSON());
-                    }
+                    if(event.candidate) db.ref(`calls/${callId}/callerCandidates`).push(event.candidate.toJSON());
                 };
 
-                // Create Offer
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
 
-                // Save Call Data
                 await db.ref('calls/'+callId).set({
-                    caller: me.uid,
-                    callee: friend.uid,
-                    type: type,
+                    caller: me.uid, callee: friend.uid, type: type,
                     offer: { type: offer.type, sdp: offer.sdp },
-                    status: 'ringing',
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                    status: 'ringing', timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                // Listen for Answer
+                // Listen for Call Status Changes (Connected, Ended)
+                listenForCallStatus();
+
+                // ICE & Answer Listeners
                 db.ref(`calls/${callId}/answer`).on('value', async (snapshot) => {
                     const data = snapshot.val();
                     if(data && !pc.currentRemoteDescription) {
-                        console.log("Received answer");
                         await pc.setRemoteDescription(new RTCSessionDescription(data));
                     }
                 });
-
-                // Listen for Callee Candidates
                 db.ref(`calls/${callId}/calleeCandidates`).on('child_added', async (snapshot) => {
-                    const data = snapshot.val();
-                    if(data) {
-                        await pc.addIceCandidate(new RTCIceCandidate(data));
-                    }
+                    if(snapshot.val()) await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
                 });
 
             } catch(err) {
-                console.error("Call Start Error:", err);
                 alert("Could not start call: " + err.message);
-                endCall();
+                endCall(true); // Force cleanup without notifying DB again
             }
         }
 
         function listenCalls() {
             db.ref('calls').orderByChild('callee').equalTo(me.uid).on('child_added', async snap => {
                 const call = snap.val();
-                callId = snap.key;
-                
+                // Only process if ringing and not already handled
                 if(call.status === 'ringing') {
+                    callId = snap.key;
                     callType = call.type;
+                    
                     const uSnap = await db.ref('users/'+call.caller).once('value');
                     const caller = uSnap.val();
                     
@@ -803,25 +819,24 @@
             try {
                 myStream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true });
                 document.getElementById('localVid').srcObject = myStream;
-                openModal('callModal');
+                
+                // Get Caller Info for Label
+                const callSnap = await db.ref('calls/'+callId).once('value');
+                const callerId = callSnap.val().caller;
+                const uSnap = await db.ref('users/'+callerId).once('value');
+                document.getElementById('remoteLabel').innerText = uSnap.val().name;
 
+                openModal('callModal');
+                setCallUI('connected'); // Directly show connected UI
+                
                 createPeerConnection();
 
-                // ICE Candidate Handler
                 pc.onicecandidate = (event) => {
-                    if(event.candidate) {
-                        db.ref(`calls/${callId}/calleeCandidates`).push(event.candidate.toJSON());
-                    }
+                    if(event.candidate) db.ref(`calls/${callId}/calleeCandidates`).push(event.candidate.toJSON());
                 };
 
-                // Get Offer
-                const callSnap = await db.ref(`calls/${callId}`).once('value');
-                const callData = callSnap.val();
-
-                if(callData.offer) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
-                    
-                    // Create Answer
+                if(callSnap.val().offer) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(callSnap.val().offer));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
                     
@@ -829,35 +844,78 @@
                     await db.ref(`calls/${callId}`).update({status: 'connected'});
                 }
 
-                // Listen for Caller Candidates
                 db.ref(`calls/${callId}/callerCandidates`).on('child_added', async (snapshot) => {
-                    const data = snapshot.val();
-                    if(data) {
-                        await pc.addIceCandidate(new RTCIceCandidate(data));
-                    }
+                    if(snapshot.val()) await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
                 });
 
+                // Listen for End Call
+                listenForCallStatus();
+
             } catch(err) {
-                console.error("Answer Error:", err);
-                alert("Could not answer call");
-                endCall();
+                alert("Could not answer call: " + err.message);
+                endCall(true);
             }
+        }
+
+        // Listen for status changes in DB (Connected -> Start Timer, Ended -> Hangup)
+        function listenForCallStatus() {
+            if(callStatusListener) db.ref('calls/'+callId).off('value', callStatusListener);
+            
+            callStatusListener = db.ref('calls/'+callId).on('value', (snapshot) => {
+                const data = snapshot.val();
+                if(!data) return;
+
+                if(data.status === 'connected') {
+                    callStartTime = Date.now();
+                    setCallUI('connected'); // Hide overlay
+                }
+                
+                // If status ended/rejected by OTHER user, close local UI
+                if((data.status === 'ended' || data.status === 'rejected') && data.status !== 'connected') {
+                    endCall(true); // true = isRemoteEnd
+                }
+            });
+        }
+
+        // isRemoteEnd: true if triggered by DB update, false if triggered by local button click
+        async function endCall(isRemoteEnd) {
+            // Calculate Duration
+            let durationStr = "";
+            if (callStartTime) {
+                const diff = Math.floor((Date.now() - callStartTime) / 1000);
+                const m = Math.floor(diff / 60);
+                const s = diff % 60;
+                durationStr = `Duration: ${m} min ${s} sec`;
+            } else {
+                durationStr = "Call ended";
+            }
+
+            // Cleanup UI
+            closeModal('callModal');
+            closeModal('incomingModal');
+            stopSound();
+            
+            if(pc) { pc.close(); pc = null; }
+            if(myStream) { myStream.getTracks().forEach(t => t.stop()); myStream = null; }
+            
+            // Update DB only if I initiated the end
+            if(!isRemoteEnd && callId) {
+                await db.ref('calls/'+callId).update({status: 'ended'});
+            }
+            
+            // Detach listener
+            if(callStatusListener) db.ref('calls/'+callId).off('value', callStatusListener);
+            
+            callStartTime = null;
+            callId = null;
+            
+            alert(durationStr);
         }
 
         async function rejectCall() {
             stopSound();
             if(callId) await db.ref(`calls/${callId}`).update({status: 'rejected'});
             closeModal('incomingModal');
-            callId = null;
-        }
-
-        async function endCall() {
-            if(pc) { pc.close(); pc = null; }
-            if(myStream) { myStream.getTracks().forEach(t => t.stop()); myStream = null; }
-            if(callId) db.ref(`calls/${callId}`).update({status: 'ended'});
-            closeModal('callModal');
-            closeModal('incomingModal');
-            stopSound();
             callId = null;
         }
 
@@ -873,12 +931,12 @@
                 if(type === 'message') {
                     const audio = document.getElementById('msgSound');
                     audio.currentTime = 0;
-                    audio.play().catch(e => console.log("Audio play blocked", e));
+                    audio.play().catch(e => {});
                 }
                 if(type === 'ring') {
                     const audio = document.getElementById('ringSound');
                     audio.currentTime = 0;
-                    audio.play().catch(e => console.log("Audio play blocked", e));
+                    audio.play().catch(e => {});
                 }
             } catch(e) {}
         }
