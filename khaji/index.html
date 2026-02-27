@@ -61,14 +61,17 @@
         .auth-section { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; }
         .auth-section h1 { color: white; margin-bottom: 30px; }
         .auth-logo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); background: white; }
-        .auth-form { width: 100%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
+        .auth-form { width: 100%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); position: relative; }
         .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
         .auth-tab { flex: 1; padding: 10px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; }
         .auth-tab.active { color: #667eea; border-bottom: 2px solid #667eea; margin-bottom: -2px; }
         .input-group { margin-bottom: 15px; }
         .input-group input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
-        .auth-btn { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+        .auth-btn { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-bottom: 10px; }
         .auth-btn:active { opacity: 0.8; }
+        .auth-btn.secondary { background: #fff; color: #667eea; border: 1px solid #667eea; }
+        .link-text { display: block; margin-top: 15px; font-size: 13px; color: #667eea; cursor: pointer; text-decoration: none; }
+        .link-text:hover { text-decoration: underline; }
 
         /* App Layout */
         .app-section { display: none; height: 100%; width: 100%; }
@@ -205,7 +208,6 @@
 </head>
 <body>
     <!-- Audio Elements -->
-    <!-- Sounds -->
     <audio id="msgSound" src="https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3" preload="auto"></audio>
     <audio id="sentSound" src="https://cdn.freesound.org/previews/411/411411_5121236-lq.mp3" preload="auto"></audio>
     <audio id="ringSound" src="https://cdn.freesound.org/previews/411/411089_5121236-lq.mp3" preload="auto" loop></audio>
@@ -217,23 +219,48 @@
         <!-- Auth -->
         <div class="auth-section" id="authSection">
             <img src="Khaji.png" class="auth-logo" alt="Logo">
-            <h1>ConnectChat</h1>
+            <h1>Khaji Chat</h1>
             <div class="auth-form">
-                <div class="auth-tabs">
-                    <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
-                    <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+                
+                <!-- Login/Register Tabs -->
+                <div id="authMainContainer">
+                    <div class="auth-tabs" id="authTabs">
+                        <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                        <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+                    </div>
+                    <div id="loginForm">
+                        <div class="input-group"><input type="email" id="loginEmail" placeholder="Email"></div>
+                        <div class="input-group"><input type="password" id="loginPass" placeholder="Password"></div>
+                        <button class="auth-btn" onclick="login()">Login</button>
+                        <span class="link-text" onclick="showForgotPassword()">Forgot Password?</span>
+                    </div>
+                    <div id="registerForm" style="display:none;">
+                        <div class="input-group"><input type="text" id="regName" placeholder="Full Name"></div>
+                        <div class="input-group"><input type="email" id="regEmail" placeholder="Email"></div>
+                        <div class="input-group"><input type="password" id="regPass" placeholder="Password"></div>
+                        <button class="auth-btn" onclick="register()">Register</button>
+                    </div>
                 </div>
-                <div id="loginForm">
-                    <div class="input-group"><input type="email" id="loginEmail" placeholder="Email"></div>
-                    <div class="input-group"><input type="password" id="loginPass" placeholder="Password"></div>
-                    <button class="auth-btn" onclick="login()">Login</button>
+
+                <!-- Forgot Password Container -->
+                <div id="forgotContainer" style="display:none;">
+                    <h3 style="margin-bottom: 15px; color: #333;">Reset Password</h3>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Enter your email to receive a reset link.</p>
+                    <div class="input-group"><input type="email" id="forgotEmail" placeholder="Email"></div>
+                    <button class="auth-btn" onclick="resetPassword()">Send Link</button>
+                    <span class="link-text" onclick="backToLogin()">Back to Login</span>
                 </div>
-                <div id="registerForm" style="display:none;">
-                    <div class="input-group"><input type="text" id="regName" placeholder="Name"></div>
-                    <div class="input-group"><input type="email" id="regEmail" placeholder="Email"></div>
-                    <div class="input-group"><input type="password" id="regPass" placeholder="Password"></div>
-                    <button class="auth-btn" onclick="register()">Register</button>
+
+                <!-- Verification Container -->
+                <div id="verifyContainer" style="display:none;">
+                    <h3 style="margin-bottom: 15px; color: #333;">Verify Email</h3>
+                    <p style="font-size: 13px; color: #666; margin-bottom: 10px;">A verification link has been sent to:</p>
+                    <p style="font-weight: bold; color: #667eea; margin-bottom: 20px;" id="verifyEmailLabel"></p>
+                    <button class="auth-btn" onclick="resendVerification()">Resend Email</button>
+                    <button class="auth-btn secondary" onclick="refreshUser()">I have verified / Refresh</button>
+                    <span class="link-text" onclick="logout()">Logout</span>
                 </div>
+
             </div>
         </div>
 
@@ -408,25 +435,19 @@
 
         // ----------------- UTILITY FUNCTIONS ----------------- //
 
-        // 1. Toast Notification System
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.innerHTML = message;
             container.appendChild(toast);
-
-            // Trigger reflow
             setTimeout(() => toast.classList.add('show'), 10);
-
-            // Remove after 3 seconds
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
 
-        // 2. Sound Player with Interaction Unlock
         function playSound(type) {
             try {
                 let audio;
@@ -435,9 +456,8 @@
                 else if(type === 'ring') audio = document.getElementById('ringSound');
                 
                 if (audio) {
-                    // Reset time and play
                     audio.currentTime = 0;
-                    audio.play().catch(e => console.log("Audio play failed (user interaction needed):", e));
+                    audio.play().catch(e => console.log("Audio play failed:", e));
                 }
             } catch(e) { console.log(e); }
         }
@@ -450,7 +470,6 @@
             } catch(e){} 
         }
 
-        // 3. Browser Notification
         function notifyUser(title, body) {
             if (!("Notification" in window)) return;
             if (Notification.permission === "granted") {
@@ -468,12 +487,20 @@
 
         auth.onAuthStateChanged(async user => {
             if(user) {
+                // Check if email is verified
+                if (!user.emailVerified) {
+                    showVerifyScreen(user.email);
+                    return;
+                }
+
+                // User is verified, proceed to app
                 me = { uid: user.uid, name: user.displayName || "User", email: user.email };
+                
+                // Update DB presence
                 await db.ref('users/'+me.uid).update({ name: me.name, email: me.email, online: true });
                 db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
                 db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
                 
-                // Ask for notification permission once logged in
                 if (Notification.permission === 'default') Notification.requestPermission();
 
                 showApp();
@@ -482,6 +509,7 @@
             } else {
                 document.getElementById('authSection').style.display = 'flex';
                 document.getElementById('appSection').style.display = 'none';
+                backToLogin(); // Reset auth forms
             }
         });
 
@@ -493,12 +521,41 @@
             document.getElementById('registerForm').style.display = t==='register'?'block':'none';
         }
 
+        function showForgotPassword() {
+            document.getElementById('authMainContainer').style.display = 'none';
+            document.getElementById('verifyContainer').style.display = 'none';
+            document.getElementById('forgotContainer').style.display = 'block';
+        }
+
+        function backToLogin() {
+            document.getElementById('authMainContainer').style.display = 'block';
+            document.getElementById('forgotContainer').style.display = 'none';
+            document.getElementById('verifyContainer').style.display = 'none';
+            switchAuthTab('login');
+        }
+
+        function showVerifyScreen(email) {
+            document.getElementById('authSection').style.display = 'flex';
+            document.getElementById('appSection').style.display = 'none';
+            
+            document.getElementById('authMainContainer').style.display = 'none';
+            document.getElementById('forgotContainer').style.display = 'none';
+            document.getElementById('verifyContainer').style.display = 'block';
+            document.getElementById('verifyEmailLabel').innerText = email;
+        }
+
         async function login() {
             try { 
-                await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value); 
+                const userCred = await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value);
+                // Check verification status manually to show toast if not verified
+                if(userCred.user && !userCred.user.emailVerified) {
+                    showToast("Please verify your email to login.", 'error');
+                } else {
+                    showToast("Login Successful!", 'success');
+                }
             } catch(e) { 
                 let msg = e.message;
-                if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-login') msg = "Incorrect password. Please try again.";
+                if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-login') msg = "Incorrect password.";
                 if(e.code === 'auth/user-not-found') msg = "User not found.";
                 showToast(msg, 'error');
             }
@@ -506,16 +563,80 @@
         
         async function register() {
             try {
-                const name = document.getElementById('regName').value || "User";
+                const name = document.getElementById('regName').value;
+                if(!name) {
+                    showToast("Please enter your name", 'error');
+                    return;
+                }
+
                 const cred = await auth.createUserWithEmailAndPassword(document.getElementById('regEmail').value, document.getElementById('regPass').value);
+                
+                // Update Profile
                 await cred.user.updateProfile({ displayName: name });
-                await db.ref('users/'+cred.user.uid).set({ name, email: cred.user.email, online: true, bio: '', status: 'Hey there!' });
+                
+                // Send Verification Email
+                await cred.user.sendEmailVerification();
+                
+                // Save to DB
+                await db.ref('users/'+cred.user.uid).set({ 
+                    name, 
+                    email: cred.user.email, 
+                    online: false, 
+                    bio: '', 
+                    status: 'Hey there!' 
+                });
+
+                showToast("Registration successful! Please check your email for verification.", 'success');
+                
+                // Show verify screen immediately
+                showVerifyScreen(cred.user.email);
+
             } catch(e) { 
                 showToast(e.message, 'error'); 
             }
         }
+
+        async function resetPassword() {
+            const email = document.getElementById('forgotEmail').value;
+            if(!email) {
+                showToast("Please enter your email", 'error');
+                return;
+            }
+            try {
+                await auth.sendPasswordResetEmail(email);
+                showToast("Password reset link sent! Check your inbox.", 'success');
+                backToLogin();
+            } catch(e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function resendVerification() {
+            try {
+                if(auth.currentUser) {
+                    await auth.currentUser.sendEmailVerification();
+                    showToast("Verification email sent again!", 'success');
+                }
+            } catch(e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function refreshUser() {
+            try {
+                if(auth.currentUser) {
+                    await auth.currentUser.reload();
+                    // The onAuthStateChanged listener will handle the rest if verified
+                    if(!auth.currentUser.emailVerified) {
+                        showToast("Email not verified yet.", 'info');
+                    }
+                }
+            } catch(e) {
+                console.log(e);
+            }
+        }
         
-        function logout() { auth.signOut(); }
+        function logout() { auth.signOut(); backToLogin(); }
 
         // ----------------- APP LOGIC ----------------- //
 
@@ -565,9 +686,7 @@
             else loadSearch();
         }
 
-        // --- FIXED Notification Logic ---
         function setupGlobalListeners(friendIds) {
-            // 1. Cleanup old listeners
             Object.keys(msgListeners).forEach(key => msgListeners[key].off());
             msgListeners = {};
 
@@ -583,9 +702,7 @@
 
                     const msg = snap.val();
                     
-                    // If message is not from me
                     if(msg.sender !== me.uid) {
-                        // If chat is NOT currently open
                         if(chatId !== cid) {
                             playSound('message');
                             notifyUser("New Message", `From: ${msg.senderName || 'User'}`);
@@ -733,7 +850,7 @@
             friend = { uid, ...uSnap.val() };
             chatId = [me.uid, friend.uid].sort().join('_');
             
-            unreadCounts[uid] = 0; // Clear count
+            unreadCounts[uid] = 0; 
             
             document.getElementById('chatAvatar').innerText = (friend.name||'U').charAt(0);
             document.getElementById('chatName').innerText = friend.name;
@@ -750,7 +867,7 @@
             
             loadMessages();
             listenTyping();
-            loadFriends(); // Refresh sidebar
+            loadFriends(); 
         }
 
         function goBack() {
@@ -764,7 +881,6 @@
                 const msg = snap.val();
                 const msgId = snap.key;
                 
-                // Mark as seen logic
                 if(msg.sender !== me.uid && msg.status !== 'seen') {
                     db.ref('messages/'+chatId+'/'+msgId).update({status: 'seen'});
                 }
@@ -834,7 +950,7 @@
                 sender: me.uid, senderName: me.name, text, timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent'
             });
             
-            playSound('sent'); // Play sound when sending
+            playSound('sent'); 
             document.getElementById('msgInput').value = '';
         }
 
@@ -911,13 +1027,13 @@
             const statusText = document.getElementById('overlayStatus');
 
             if (status === 'calling') {
-                overlay.className = "call-status-overlay"; // show
+                overlay.className = "call-status-overlay"; 
                 title.innerText = "Calling " + friend.name;
                 statusText.innerText = "Ringing...";
             } else if (status === 'connected') {
-                overlay.className = "call-status-overlay hidden"; // hide
+                overlay.className = "call-status-overlay hidden";
             } else if (status === 'ended') {
-                overlay.className = "call-status-overlay"; // show
+                overlay.className = "call-status-overlay"; 
                 title.innerText = "Call Ended";
                 statusText.innerText = text || "Call duration: 0m 0s";
             }
@@ -1058,11 +1174,10 @@
                 durationStr = `${m}m ${s}s`;
             }
 
-            // Show Call Ended UI briefly if not remote end
             if(!isRemoteEnd && callId) {
                 setCallUI('ended', durationStr);
                 await db.ref('calls/'+callId).update({status: 'ended'});
-                await new Promise(r => setTimeout(r, 1500)); // Wait 1.5s to show "Call Ended"
+                await new Promise(r => setTimeout(r, 1500)); 
             }
 
             closeModal('callModal');
