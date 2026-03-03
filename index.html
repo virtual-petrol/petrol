@@ -68,7 +68,6 @@
         .input-group { margin-bottom: 15px; }
         .input-group input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
         .auth-btn { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-bottom: 10px; }
-        .auth-btn:disabled { background: #ccc; cursor: not-allowed; }
         .auth-btn:active { opacity: 0.8; }
         .auth-btn.secondary { background: #fff; color: #667eea; border: 1px solid #667eea; }
         .link-text { display: block; margin-top: 15px; font-size: 13px; color: #667eea; cursor: pointer; text-decoration: none; }
@@ -269,14 +268,14 @@
                     <div id="loginForm">
                         <div class="input-group"><input type="email" id="loginEmail" placeholder="Email"></div>
                         <div class="input-group"><input type="password" id="loginPass" placeholder="Password"></div>
-                        <button class="auth-btn" id="loginBtn" onclick="login()">Login</button>
+                        <button class="auth-btn" onclick="login()">Login</button>
                         <span class="link-text" onclick="showForgotPassword()">Forgot Password?</span>
                     </div>
                     <div id="registerForm" style="display:none;">
                         <div class="input-group"><input type="text" id="regName" placeholder="Full Name"></div>
                         <div class="input-group"><input type="email" id="regEmail" placeholder="Email"></div>
                         <div class="input-group"><input type="password" id="regPass" placeholder="Password"></div>
-                        <button class="auth-btn" id="regBtn" onclick="register()">Register</button>
+                        <button class="auth-btn" onclick="register()">Register</button>
                     </div>
                 </div>
 
@@ -536,36 +535,20 @@
 
         // ----------------- AUTH LOGIC ----------------- //
 
-        // --- SAFE INITIALIZATION FUNCTION ---
-        async function initializeUser(user) {
-            try {
-                if (!user) throw new Error("No user found");
-
+        auth.onAuthStateChanged(async user => {
+            if(user) {
                 if (!user.emailVerified) {
                     showVerifyScreen(user.email);
                     return;
                 }
 
-                // Database update garne
                 await db.ref('users/'+user.uid).update({ verified: true, online: true });
-                
                 const snap = await db.ref('users/'+user.uid).once('value');
                 const dbUser = snap.val();
 
-                me = { 
-                    uid: user.uid, 
-                    name: user.displayName || dbUser?.name || "User", 
-                    email: user.email 
-                };
+                me = { uid: user.uid, name: user.displayName || "User", email: user.email };
                 
-                // Name update garne if missing
-                if (dbUser && dbUser.name) {
-                    me.name = dbUser.name;
-                } else {
-                    await db.ref('users/'+me.uid).update({ name: me.name, email: me.email });
-                }
-
-                // Online status set garne
+                await db.ref('users/'+me.uid).update({ name: me.name, email: me.email });
                 db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
                 db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
                 
@@ -574,29 +557,10 @@
                 showApp();
                 listenRequests();
                 listenCalls();
-
-            } catch (error) {
-                console.error("Init Error:", error);
-                showToast("Login Error: " + error.message, 'error');
-                // Jati error aayo pani login screen ma nai pathauna
-                auth.signOut().catch(e => console.log(e));
-            }
-        }
-
-        // --- AUTH STATE LISTENER (Main Trigger) ---
-        auth.onAuthStateChanged(async user => {
-            try {
-                if(user) {
-                    await initializeUser(user);
-                } else {
-                    // Logout bhaye ko logic
-                    document.getElementById('authSection').style.display = 'flex';
-                    document.getElementById('appSection').style.display = 'none';
-                    backToLogin();
-                }
-            } catch (error) {
-                console.error("Auth State Error:", error);
-                showToast("App Loading Error: " + error.message, 'error');
+            } else {
+                document.getElementById('authSection').style.display = 'flex';
+                document.getElementById('appSection').style.display = 'none';
+                backToLogin();
             }
         });
 
@@ -632,41 +596,22 @@
         }
 
         async function login() {
-            const btn = document.getElementById('loginBtn');
-            const email = document.getElementById('loginEmail').value;
-            const pass = document.getElementById('loginPass').value;
-
-            // 1. Disable button to prevent multiple clicks
-            btn.disabled = true;
-            btn.innerText = "Logging in...";
-
             try { 
-                const userCred = await auth.signInWithEmailAndPassword(email, pass);
+                const userCred = await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value);
                 if(userCred.user && !userCred.user.emailVerified) {
                     showToast("Please verify your email to login.", 'error');
-                    showVerifyScreen(userCred.user.email);
                 } else {
                     showToast("Login Successful!", 'success');
-                    // 2. Force UI update immediately
-                    await initializeUser(userCred.user);
                 }
             } catch(e) { 
                 let msg = e.message;
                 if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-login') msg = "Incorrect password.";
                 if(e.code === 'auth/user-not-found') msg = "User not found.";
                 showToast(msg, 'error');
-            } finally {
-                // 3. Re-enable button
-                btn.disabled = false;
-                btn.innerText = "Login";
             }
         }
         
         async function register() {
-            const btn = document.getElementById('regBtn');
-            btn.disabled = true;
-            btn.innerText = "Creating...";
-
             try {
                 const name = document.getElementById('regName').value;
                 if(!name) { showToast("Please enter your name", 'error'); return; }
@@ -678,9 +623,6 @@
                 showToast("Registered! Check Inbox/Spam to verify.", 'success', 5000);
                 showVerifyScreen(cred.user.email);
             } catch(e) { showToast(e.message, 'error'); }
-            
-            btn.disabled = false;
-            btn.innerText = "Register";
         }
 
         async function resetPassword() {
