@@ -536,38 +536,67 @@
 
         // ----------------- AUTH LOGIC ----------------- //
 
-        // --- REFACTORED: Separate initialization function ---
-        // This allows us to call it manually on login button click
+        // --- SAFE INITIALIZATION FUNCTION ---
         async function initializeUser(user) {
-            if (!user.emailVerified) {
-                showVerifyScreen(user.email);
-                return;
+            try {
+                if (!user) throw new Error("No user found");
+
+                if (!user.emailVerified) {
+                    showVerifyScreen(user.email);
+                    return;
+                }
+
+                // Database update garne
+                await db.ref('users/'+user.uid).update({ verified: true, online: true });
+                
+                const snap = await db.ref('users/'+user.uid).once('value');
+                const dbUser = snap.val();
+
+                me = { 
+                    uid: user.uid, 
+                    name: user.displayName || dbUser?.name || "User", 
+                    email: user.email 
+                };
+                
+                // Name update garne if missing
+                if (dbUser && dbUser.name) {
+                    me.name = dbUser.name;
+                } else {
+                    await db.ref('users/'+me.uid).update({ name: me.name, email: me.email });
+                }
+
+                // Online status set garne
+                db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
+                db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+                
+                if (Notification.permission === 'default') Notification.requestPermission();
+
+                showApp();
+                listenRequests();
+                listenCalls();
+
+            } catch (error) {
+                console.error("Init Error:", error);
+                showToast("Login Error: " + error.message, 'error');
+                // Jati error aayo pani login screen ma nai pathauna
+                auth.signOut().catch(e => console.log(e));
             }
-
-            await db.ref('users/'+user.uid).update({ verified: true, online: true });
-            const snap = await db.ref('users/'+user.uid).once('value');
-            const dbUser = snap.val();
-
-            me = { uid: user.uid, name: user.displayName || "User", email: user.email };
-            
-            await db.ref('users/'+me.uid).update({ name: me.name, email: me.email });
-            db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
-            db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
-            
-            if (Notification.permission === 'default') Notification.requestPermission();
-
-            showApp();
-            listenRequests();
-            listenCalls();
         }
 
+        // --- AUTH STATE LISTENER (Main Trigger) ---
         auth.onAuthStateChanged(async user => {
-            if(user) {
-                await initializeUser(user);
-            } else {
-                document.getElementById('authSection').style.display = 'flex';
-                document.getElementById('appSection').style.display = 'none';
-                backToLogin();
+            try {
+                if(user) {
+                    await initializeUser(user);
+                } else {
+                    // Logout bhaye ko logic
+                    document.getElementById('authSection').style.display = 'flex';
+                    document.getElementById('appSection').style.display = 'none';
+                    backToLogin();
+                }
+            } catch (error) {
+                console.error("Auth State Error:", error);
+                showToast("App Loading Error: " + error.message, 'error');
             }
         });
 
