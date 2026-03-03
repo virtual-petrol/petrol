@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Viewport settings optimized for Mobile Apps/WebView -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="icon" type="image/png" href="Khaji.png">
     <title>Khaji Chat</title>
@@ -14,18 +13,16 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     
     <style>
-        /* --- FIXED CSS FOR MOBILE APPS --- */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f0f2f5;
-            /* Changed position:fixed to min-height to fix WebView blank screen issues */
             min-height: 100vh; 
             width: 100%;
             display: flex;
             justify-content: center;
-            overflow: hidden; /* Prevent body scroll, handle inside containers */
+            overflow: hidden;
         }
 
         .container {
@@ -38,53 +35,21 @@
             position: relative;
         }
 
-        /* Desktop specific styles */
         @media (min-width: 769px) {
-            body { 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                padding: 20px; 
-                height: 100vh; 
-                align-items: center; /* Center the app on desktop */
-            }
-            .container { 
-                height: 100%; 
-                border-radius: 20px; 
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
-                overflow: hidden; 
-            }
+            body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; height: 100vh; align-items: center; }
+            .container { height: 100%; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
         }
 
         /* Toast Notification System */
-        .toast-container {
-            position: fixed; top: 20px; right: 20px; z-index: 9999;
-            display: flex; flex-direction: column; gap: 10px;
-            pointer-events: none; /* Allow clicks to pass through */
-        }
-        .toast {
-            background: #333; color: white; padding: 12px 20px;
-            border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-size: 14px; opacity: 0; transform: translateX(100%);
-            transition: all 0.3s ease; display: flex; align-items: center; gap: 10px;
-            max-width: 300px; pointer-events: auto;
-        }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { background: #333; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 14px; opacity: 0; transform: translateX(100%); transition: all 0.3s ease; display: flex; align-items: center; gap: 10px; max-width: 300px; pointer-events: auto; }
         .toast.show { opacity: 1; transform: translateX(0); }
         .toast.error { background: #ff4757; }
         .toast.success { background: #2ed573; }
         .toast.info { background: #667eea; }
 
         /* Auth Section */
-        .auth-section { 
-            flex: 1; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            padding: 20px; 
-            text-align: center; 
-            width: 100%;
-            height: 100%;
-        }
+        .auth-section { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; width: 100%; height: 100%; }
         .auth-section h1 { color: white; margin-bottom: 30px; }
         .auth-logo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); background: white; }
         .auth-form { width: 100%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); position: relative; }
@@ -108,18 +73,12 @@
 
         /* Sidebar */
         .sidebar { width: 300px; background: #f9f9f9; border-right: 1px solid #eee; display: flex; flex-direction: column; flex-shrink: 0; height: 100%; }
-        
-        .user-profile { 
-            padding: 15px; background: white; border-bottom: 1px solid #eee; 
-            display: flex; align-items: center; gap: 10px; cursor: pointer; 
-        }
+        .user-profile { padding: 15px; background: white; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; cursor: pointer; }
         .user-profile:active { background: #f0f0f0; }
-        
         .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; overflow: hidden; }
         .avatar img { width: 100%; height: 100%; object-fit: cover; }
         .user-info { flex: 1; overflow: hidden; }
         .user-info h3 { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
         .tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
         .tab { flex: 1; padding: 12px 5px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; }
         .tab.active { color: #667eea; border-bottom: 2px solid #667eea; }
@@ -131,15 +90,9 @@
         .user-item.active { background: #e8eaff; }
         .user-status { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; margin-left: auto; }
         .user-status.offline { background: #ccc; }
-        
-        .unread-badge {
-            background: #ff4757; color: white; border-radius: 12px;
-            padding: 2px 8px; font-size: 10px; font-weight: bold;
-            position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
-        }
+        .unread-badge { background: #ff4757; color: white; border-radius: 12px; padding: 2px 8px; font-size: 10px; font-weight: bold; position: absolute; right: 15px; top: 50%; transform: translateY(-50%); }
         .user-item.has-unread h4 { font-weight: 800; color: #333; }
         .user-item.has-unread p { font-weight: 600; color: #444; }
-
         .friend-request-badge { background: #ff4757; color: white; border-radius: 10px; padding: 1px 6px; font-size: 10px; margin-left: 5px; }
         .action-btn-sm { border: none; padding: 5px 10px; border-radius: 15px; font-size: 11px; cursor: pointer; margin-left: 5px; }
         .accept-sm { background: #4caf50; color: white; }
@@ -153,12 +106,7 @@
         .chat-user-info { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; min-width: 0; }
         .typing-indicator { font-size: 11px; color: #667eea; font-style: italic; margin-top: 2px; display: none; }
         .call-btns { display: flex; gap: 8px; }
-        
-        .icon-btn {
-            background: #f0f2f5; border: none; width: 40px; height: 40px;
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; color: #667eea; transition: background 0.2s;
-        }
+        .icon-btn { background: #f0f2f5; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #667eea; transition: background 0.2s; }
         .icon-btn:active { background: #d4d6db; }
         .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; background: #f0f2f5; }
         .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
@@ -202,12 +150,10 @@
         .video-label { position: absolute; bottom: 20px; left: 20px; color: white; font-size: 14px; background: rgba(0,0,0,0.6); padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; }
         .video-box.local-pip { position: absolute; top: 20px; right: 20px; width: 120px; height: 170px; border-radius: 15px; border: 2px solid rgba(255,255,255,0.3); overflow: hidden; z-index: 10; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         .video-box.local-pip video { object-fit: cover; }
-
         .call-status-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 15; color: white; transition: opacity 0.3s; }
         .call-status-overlay.hidden { opacity: 0; pointer-events: none; }
         .call-status-overlay h2 { margin-bottom: 10px; font-size: 24px; }
         .call-status-overlay p { opacity: 0.8; font-size: 14px; }
-
         .call-controls { position: absolute; bottom: 0; left: 0; width: 100%; z-index: 20; padding: 20px; display: flex; justify-content: center; gap: 25px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); }
         .control-btn { width: 60px; height: 60px; border-radius: 50%; border: none; font-size: 24px; cursor: pointer; background: rgba(255,255,255,0.15); color: white; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); transition: transform 0.1s; }
         .control-btn:active { transform: scale(0.95); }
@@ -219,7 +165,6 @@
         .answer-btn { background: #4caf50; color: white; padding: 12px 30px; border: none; border-radius: 30px; font-size: 16px; font-weight: 600; cursor: pointer; }
         .decline-btn { background: #ff4757; color: white; padding: 12px 30px; border: none; border-radius: 30px; font-size: 16px; font-weight: 600; cursor: pointer; }
 
-        /* Responsive Mobile */
         @media (max-width: 768px) {
             .sidebar { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; transition: transform 0.3s; }
             .main-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; transform: translateX(100%); transition: transform 0.3s; background: white; }
@@ -231,16 +176,13 @@
     </style>
 </head>
 <body>
-    <!-- Audio Elements -->
     <audio id="msgSound" src="https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3" preload="auto"></audio>
     <audio id="sentSound" src="https://cdn.freesound.org/previews/411/411411_5121236-lq.mp3" preload="auto"></audio>
-    <audio id="ringSound" src="Test Ringtone.mp3" preload="auto" loop></audio>
+    <audio id="ringSound" src="https://cdn.freesound.org/previews/411/411089_5121236-lq.mp3" preload="auto" loop></audio>
 
-    <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
     <div class="container">
-        <!-- Auth -->
         <div class="auth-section" id="authSection">
             <img src="Khaji.png" class="auth-logo" alt="Logo" onerror="this.style.display='none'">
             <h1>Khaji Chat</h1>
@@ -283,10 +225,8 @@
             </div>
         </div>
 
-        <!-- App -->
         <div class="app-section" id="appSection">
             <div class="app-container" id="appContainer">
-                <!-- Sidebar -->
                 <div class="sidebar">
                     <div class="user-profile" onclick="openModal('profileModal')">
                         <div class="avatar" id="myAvatar">U</div>
@@ -308,7 +248,6 @@
                     <div class="tab-content" id="sidebarContent"></div>
                 </div>
 
-                <!-- Chat -->
                 <div class="main-content">
                     <div class="chat-header">
                         <button class="back-btn" onclick="goBack()">⬅️</button>
@@ -386,7 +325,6 @@
         <img id="previewImg" style="max-width:90%; max-height:90%; border-radius:10px;">
     </div>
 
-    <!-- Video Call UI -->
     <div class="video-modal" id="callModal">
         <div class="video-grid">
             <div id="callStatusOverlay" class="call-status-overlay">
@@ -412,7 +350,6 @@
         </div>
     </div>
 
-    <!-- Incoming Call UI -->
     <div class="modal-overlay" id="incomingModal">
         <div class="modal-content incoming-call-ui">
             <h2 id="callerName">Caller</h2>
@@ -425,7 +362,6 @@
     </div>
 
     <script>
-        // Wait for DOM to be fully ready before initializing
         document.addEventListener('DOMContentLoaded', () => {
             initApp();
         });
@@ -440,8 +376,14 @@
         let typingTimer = null;
         let unreadCounts = {}; 
         let isInitialLoad = true;
+        
+        // --- NOTIFICATION FIX VARIABLES ---
+        // Track when the app started to distinguish old vs new messages
+        const appStartTime = Date.now(); 
+        // Track which message IDs we have already notified for (prevents duplicate sounds)
+        const notifiedMessages = new Set();
+        // ------------------------------
 
-        // WebRTC State
         let pc = null; 
         let myStream = null; 
         let callId = null; 
@@ -454,7 +396,6 @@
 
         async function initApp() {
             try {
-                // Firebase Config
                 const firebaseConfig = {
                     apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
                     authDomain: "khaji-23a99.firebaseapp.com",
@@ -465,7 +406,6 @@
                     appId: "1:84794766200:web:207a50412961d45275ce8d"
                 };
                 
-                // Initialize Firebase
                 if (!firebase.apps.length) {
                     firebase.initializeApp(firebaseConfig);
                 }
@@ -474,14 +414,12 @@
                 db = firebase.database();
                 storage = firebase.storage();
 
-                // Set Persistence to LOCAL for App-like behavior
                 try {
                     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                 } catch (e) {
                     console.warn("Persistence already set or failed:", e);
                 }
 
-                // Handle auth state
                 auth.onAuthStateChanged(handleAuthState);
 
             } catch (error) {
@@ -490,13 +428,11 @@
             }
         }
 
-        // ----------------- UTILITY FUNCTIONS ----------------- //
-
         function showToast(message, type = 'info', duration = 3000) {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerText = message; // Using innerText for security
+            toast.innerText = message; 
             container.appendChild(toast);
             setTimeout(() => toast.classList.add('show'), 10);
             setTimeout(() => {
@@ -527,31 +463,23 @@
             } catch(e){} 
         }
 
-        // ----------------- AUTH LOGIC ----------------- //
-
         async function handleAuthState(user) {
-            console.log("Auth state changed:", user ? user.email : "No user");
-            
             if(user) {
                 if (!user.emailVerified) {
-                    console.log("Email not verified");
                     showVerifyScreen(user.email);
                     return;
                 }
 
                 try {
-                    // Update user online status
                     await db.ref('users/' + user.uid).update({ 
                         online: true,
                         lastSeen: firebase.database.ServerValue.TIMESTAMP 
                     });
                     
-                    // Get user data from database
                     const snap = await db.ref('users/' + user.uid).once('value');
                     const dbUser = snap.val();
                     
                     if (!dbUser) {
-                        // Create user profile if it doesn't exist
                         await db.ref('users/' + user.uid).set({
                             name: user.displayName || "User",
                             email: user.email,
@@ -560,44 +488,29 @@
                             status: 'Hey there!',
                             verified: true
                         });
-                        me = { 
-                            uid: user.uid, 
-                            name: user.displayName || "User", 
-                            email: user.email 
-                        };
+                        me = { uid: user.uid, name: user.displayName || "User", email: user.email };
                     } else {
-                        me = { 
-                            uid: user.uid, 
-                            name: dbUser.name || user.displayName || "User", 
-                            email: user.email 
-                        };
+                        me = { uid: user.uid, name: dbUser.name || user.displayName || "User", email: user.email };
                     }
                     
-                    // Set disconnect handlers
                     db.ref('users/' + me.uid + '/online').onDisconnect().set(false);
                     db.ref('users/' + me.uid + '/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
                     
-                    // Request notification permission
                     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
                         Notification.requestPermission();
                     }
                     
-                    // Show the app
                     showApp();
-                    
-                    // Start listeners
                     listenRequests();
                     listenCalls();
                     
                 } catch (error) {
                     console.error("Error in auth state change:", error);
                     showToast("Error loading user data", 'error');
-                    // Fallback to show auth section if data load fails
                     document.getElementById('authSection').style.display = 'flex';
                     document.getElementById('appSection').style.display = 'none';
                 }
             } else {
-                // User is logged out
                 document.getElementById('authSection').style.display = 'flex';
                 document.getElementById('appSection').style.display = 'none';
                 me = null;
@@ -636,7 +549,6 @@
         function showVerifyScreen(email) {
             document.getElementById('authSection').style.display = 'flex';
             document.getElementById('appSection').style.display = 'none';
-            
             document.getElementById('authMainContainer').style.display = 'none';
             document.getElementById('forgotContainer').style.display = 'none';
             document.getElementById('verifyContainer').style.display = 'block';
@@ -791,24 +703,17 @@
             }
         }
 
-        // ----------------- APP LOGIC ----------------- //
-
         function showApp() {
-            console.log("Showing app for user:", me);
             const authSec = document.getElementById('authSection');
             const appSec = document.getElementById('appSection');
             
             authSec.style.display = 'none';
-            appSec.style.display = 'flex'; // Changed to flex to ensure it takes full height
+            appSec.style.display = 'flex';
             
-            // Update UI with user info
             document.getElementById('myName').innerText = me.name;
             document.getElementById('myAvatar').innerText = me.name.charAt(0).toUpperCase();
             
-            // Load profile data
             loadProfile();
-            
-            // Load friends tab
             loadTab('friends');
         }
 
@@ -874,6 +779,7 @@
             else loadSearch();
         }
 
+        // --- FIXED NOTIFICATION LOGIC ---
         function setupGlobalListeners(friendIds) {
             // Clean up old listeners
             Object.keys(msgListeners).forEach(key => {
@@ -883,18 +789,30 @@
             });
             msgListeners = {};
             
-            // Set up new listeners
             friendIds.forEach(uid => {
                 const cid = [me.uid, uid].sort().join('_');
                 const ref = db.ref('messages/' + cid).orderByChild('timestamp').limitToLast(1);
                 msgListeners[uid] = ref;
                 
                 ref.on('child_added', snap => {
-                    const msg = snap.val();
+                    const msg = snap.val(); 
+                    const msgId = snap.key;
+                    
                     if(msg && msg.sender !== me.uid && chatId !== cid) {
-                        playSound('message');
+                        // 1. Update badge count silently
                         if (!unreadCounts[uid]) unreadCounts[uid] = 0;
                         unreadCounts[uid]++;
+                        
+                        // 2. Notification Logic
+                        // Check if message timestamp is AFTER app started (prevents old message spam)
+                        // Check if we haven't already notified for this ID (prevents duplicate listener spam)
+                        const isRecentMessage = msg.timestamp && msg.timestamp >= (appStartTime - 2000); // 2s buffer
+                        
+                        if (isRecentMessage && !notifiedMessages.has(msgId)) {
+                            notifiedMessages.add(msgId);
+                            playSound('message');
+                        }
+                        
                         if(currentTab === 'friends') loadFriends();
                     }
                 });
