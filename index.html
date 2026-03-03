@@ -13,6 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     
     <style>
+        /* Your existing styles remain exactly the same */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
@@ -288,7 +289,7 @@
                 </div>
 
                 <div id="verifyContainer" style="display:none;">
-                    <h3 style="margin-bottom: 15px; color: #333;">Verify Email: Our email may land in your spam folder. Please check your spam folder as well.</h3>
+                    <h3 style="margin-bottom: 15px; color: #333;">Verify Email</h3>
                     <p style="font-size: 13px; color: #666; margin-bottom: 10px;">A verification link has been sent to:</p>
                     <p style="font-weight: bold; color: #667eea; margin-bottom: 20px;" id="verifyEmailLabel"></p>
                     <button class="auth-btn" onclick="resendVerification()">Resend Email</button>
@@ -456,17 +457,22 @@
             messagingSenderId: "84794766200",
             appId: "1:84794766200:web:207a50412961d45275ce8d"
         };
+        
+        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
         const storage = firebase.storage();
 
         // State
-        let me = null, friend = null, chatId = null;
+        let me = null;
+        let friend = null;
+        let chatId = null;
         let currentTab = 'friends';
         let deleteTarget = null;
         let typingTimer = null;
         let unreadCounts = {}; 
+        let isInitialLoad = true;
 
         // WebRTC State
         let pc = null; 
@@ -474,18 +480,14 @@
         let callId = null; 
         let callType = null;
         const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-        let currentFacingMode = 'user'; // 'user' for front, 'environment' for back
-
-        // Call Time Tracking
+        let currentFacingMode = 'user';
         let callStartTime = null;
         let callStatusListener = null;
-        
-        // Notification Listener
         let msgListeners = {}; 
 
         // ----------------- UTILITY FUNCTIONS ----------------- //
 
-        function showToast(message, type = 'info') {
+        function showToast(message, type = 'info', duration = 3000) {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
@@ -495,7 +497,7 @@
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            }, duration);
         }
 
         function playSound(type) {
@@ -520,56 +522,95 @@
             } catch(e){} 
         }
 
-        function notifyUser(title, body) {
-            if (!("Notification" in window)) return;
-            if (Notification.permission === "granted") {
-                new Notification(title, { body: body, icon: 'Khaji.png' });
-            } else if (Notification.permission !== "denied") {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        new Notification(title, { body: body, icon: 'Khaji.png' });
-                    }
-                });
-            }
-        }
+        // ----------------- AUTH LOGIC (FIXED) ----------------- //
 
-        // ----------------- AUTH LOGIC ----------------- //
-
+        // Handle auth state changes properly
         auth.onAuthStateChanged(async user => {
+            console.log("Auth state changed:", user ? user.email : "No user");
+            
             if(user) {
                 if (!user.emailVerified) {
+                    console.log("Email not verified");
                     showVerifyScreen(user.email);
                     return;
                 }
 
-                await db.ref('users/'+user.uid).update({ verified: true, online: true });
-                const snap = await db.ref('users/'+user.uid).once('value');
-                const dbUser = snap.val();
-
-                me = { uid: user.uid, name: user.displayName || "User", email: user.email };
-                
-                await db.ref('users/'+me.uid).update({ name: me.name, email: me.email });
-                db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
-                db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
-                
-                if (Notification.permission === 'default') Notification.requestPermission();
-
-                showApp();
-                listenRequests();
-                listenCalls();
+                try {
+                    // Update user online status
+                    await db.ref('users/' + user.uid).update({ 
+                        online: true,
+                        lastSeen: firebase.database.ServerValue.TIMESTAMP 
+                    });
+                    
+                    // Get user data from database
+                    const snap = await db.ref('users/' + user.uid).once('value');
+                    const dbUser = snap.val();
+                    
+                    if (!dbUser) {
+                        // Create user profile if it doesn't exist
+                        await db.ref('users/' + user.uid).set({
+                            name: user.displayName || "User",
+                            email: user.email,
+                            online: true,
+                            bio: '',
+                            status: 'Hey there!',
+                            verified: true
+                        });
+                        me = { 
+                            uid: user.uid, 
+                            name: user.displayName || "User", 
+                            email: user.email 
+                        };
+                    } else {
+                        me = { 
+                            uid: user.uid, 
+                            name: dbUser.name || user.displayName || "User", 
+                            email: user.email 
+                        };
+                    }
+                    
+                    // Set disconnect handlers
+                    db.ref('users/' + me.uid + '/online').onDisconnect().set(false);
+                    db.ref('users/' + me.uid + '/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+                    
+                    // Request notification permission
+                    if (Notification.permission === 'default') {
+                        Notification.requestPermission();
+                    }
+                    
+                    // Show the app
+                    showApp();
+                    
+                    // Start listeners
+                    listenRequests();
+                    listenCalls();
+                    
+                } catch (error) {
+                    console.error("Error in auth state change:", error);
+                    showToast("Error loading user data", 'error');
+                }
             } else {
+                // User is logged out
                 document.getElementById('authSection').style.display = 'flex';
                 document.getElementById('appSection').style.display = 'none';
+                me = null;
+                friend = null;
+                chatId = null;
                 backToLogin();
             }
         });
 
         function switchAuthTab(t) {
             document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
-            if(t==='login') document.querySelectorAll('.auth-tab')[0].classList.add('active');
-            else document.querySelectorAll('.auth-tab')[1].classList.add('active');
-            document.getElementById('loginForm').style.display = t==='login'?'block':'none';
-            document.getElementById('registerForm').style.display = t==='register'?'block':'none';
+            if(t==='login') {
+                document.querySelectorAll('.auth-tab')[0].classList.add('active');
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('registerForm').style.display = 'none';
+            } else {
+                document.querySelectorAll('.auth-tab')[1].classList.add('active');
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'block';
+            }
         }
 
         function showForgotPassword() {
@@ -597,16 +638,32 @@
 
         async function login() {
             try { 
-                const userCred = await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value);
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPass').value;
+                
+                if (!email || !password) {
+                    showToast("Please enter email and password", 'error');
+                    return;
+                }
+                
+                showToast("Logging in...", 'info');
+                
+                const userCred = await auth.signInWithEmailAndPassword(email, password);
+                
                 if(userCred.user && !userCred.user.emailVerified) {
-                    showToast("Please verify your email to login.", 'error');
+                    showToast("Please verify your email to login. Check your spam folder.", 'error');
+                    await auth.signOut();
                 } else {
                     showToast("Login Successful!", 'success');
+                    // The auth state change will handle showing the app
                 }
             } catch(e) { 
+                console.error("Login error:", e);
                 let msg = e.message;
-                if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-login') msg = "Incorrect password.";
-                if(e.code === 'auth/user-not-found') msg = "User not found.";
+                if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') msg = "Incorrect password.";
+                else if(e.code === 'auth/user-not-found') msg = "User not found.";
+                else if(e.code === 'auth/invalid-email') msg = "Invalid email format.";
+                else if(e.code === 'auth/too-many-requests') msg = "Too many failed attempts. Try again later.";
                 showToast(msg, 'error');
             }
         }
@@ -614,116 +671,208 @@
         async function register() {
             try {
                 const name = document.getElementById('regName').value;
-                if(!name) { showToast("Please enter your name", 'error'); return; }
+                const email = document.getElementById('regEmail').value;
+                const password = document.getElementById('regPass').value;
+                
+                if(!name) { 
+                    showToast("Please enter your name", 'error'); 
+                    return; 
+                }
+                
+                if(password.length < 6) {
+                    showToast("Password must be at least 6 characters", 'error');
+                    return;
+                }
+                
+                showToast("Creating account...", 'info');
 
-                const cred = await auth.createUserWithEmailAndPassword(document.getElementById('regEmail').value, document.getElementById('regPass').value);
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
                 await cred.user.updateProfile({ displayName: name });
                 await cred.user.sendEmailVerification();
-                await db.ref('users/'+cred.user.uid).set({ name, email: cred.user.email, online: false, bio: '', status: 'Hey there!', verified: false });
-                showToast("Registered! Check Inbox/Spam to verify.", 'success', 5000);
+                
+                // Create user in database
+                await db.ref('users/' + cred.user.uid).set({ 
+                    name: name, 
+                    email: cred.user.email, 
+                    online: false, 
+                    bio: '', 
+                    status: 'Hey there!', 
+                    verified: false 
+                });
+                
+                showToast("Registered! Check your email (including spam) to verify.", 'success');
                 showVerifyScreen(cred.user.email);
-            } catch(e) { showToast(e.message, 'error'); }
+            } catch(e) { 
+                console.error("Registration error:", e);
+                let msg = e.message;
+                if(e.code === 'auth/email-already-in-use') msg = "Email already registered.";
+                else if(e.code === 'auth/invalid-email') msg = "Invalid email format.";
+                else if(e.code === 'auth/weak-password') msg = "Password too weak.";
+                showToast(msg, 'error');
+            }
         }
 
         async function resetPassword() {
             const email = document.getElementById('forgotEmail').value;
-            if(!email) { showToast("Please enter your email", 'error'); return; }
-            try { await auth.sendPasswordResetEmail(email); showToast("Link sent! Check inbox/spam.", 'success'); backToLogin(); }
-            catch(e) { showToast(e.message, 'error'); }
+            if(!email) { 
+                showToast("Please enter your email", 'error'); 
+                return; 
+            }
+            try { 
+                await auth.sendPasswordResetEmail(email); 
+                showToast("Password reset link sent! Check your inbox/spam.", 'success'); 
+                setTimeout(backToLogin, 2000);
+            } catch(e) { 
+                console.error("Reset password error:", e);
+                showToast(e.message, 'error'); 
+            }
         }
 
         async function resendVerification() {
-            try { if(auth.currentUser) { await auth.currentUser.sendEmailVerification(); showToast("Sent again!", 'success'); } }
-            catch(e) { showToast(e.message, 'error'); }
+            try { 
+                if(auth.currentUser) { 
+                    await auth.currentUser.sendEmailVerification(); 
+                    showToast("Verification email sent again!", 'success'); 
+                }
+            } catch(e) { 
+                console.error("Resend verification error:", e);
+                showToast(e.message, 'error'); 
+            }
         }
 
         async function checkVerification() {
             try {
                 if(auth.currentUser) {
+                    showToast("Checking verification...", 'info');
                     await auth.currentUser.reload();
                     if(auth.currentUser.emailVerified) {
-                        showToast("Email Verified!", "success");
-                        await db.ref('users/'+auth.currentUser.uid).update({ verified: true });
-                        me = { uid: auth.currentUser.uid, name: auth.currentUser.displayName || "User", email: auth.currentUser.email };
-                        await db.ref('users/'+me.uid).update({ name: me.name, email: me.email, online: true });
-                        db.ref('users/'+me.uid+'/online').onDisconnect().set(false);
-                        db.ref('users/'+me.uid+'/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
-                        showApp(); listenRequests(); listenCalls();
-                    } else { showToast("Not verified yet. Check spam folder.", 'info'); }
+                        showToast("Email Verified! Loading app...", "success");
+                        // The auth state change will handle showing the app
+                    } else { 
+                        showToast("Not verified yet. Check your spam folder for the verification email.", 'info'); 
+                    }
                 }
-            } catch(e) { console.log(e); showToast("Error checking", 'error'); }
+            } catch(e) { 
+                console.log(e); 
+                showToast("Error checking verification", 'error'); 
+            }
         }
         
         async function logout() {
-            closeModal('profileModal');
-            if(me && me.uid) { await db.ref('users/'+me.uid).update({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP }); }
-            await auth.signOut();
-            me = null; friend = null; chatId = null;
+            try {
+                closeModal('profileModal');
+                if(me && me.uid) { 
+                    await db.ref('users/' + me.uid).update({ 
+                        online: false, 
+                        lastSeen: firebase.database.ServerValue.TIMESTAMP 
+                    }); 
+                }
+                await auth.signOut();
+                showToast("Logged out successfully", 'success');
+            } catch(e) {
+                console.error("Logout error:", e);
+                showToast("Error logging out", 'error');
+            }
         }
 
-        // ----------------- APP LOGIC ----------------- //
+        // ----------------- APP LOGIC (FIXED) ----------------- //
 
         function showApp() {
+            console.log("Showing app for user:", me);
             document.getElementById('authSection').style.display = 'none';
             document.getElementById('appSection').style.display = 'block';
+            
+            // Update UI with user info
             document.getElementById('myName').innerText = me.name;
             document.getElementById('myAvatar').innerText = me.name.charAt(0).toUpperCase();
+            
+            // Load profile data
             loadProfile();
+            
+            // Load friends tab
             loadTab('friends');
         }
 
         async function loadProfile() {
-            const snap = await db.ref('users/'+me.uid).once('value');
-            const d = snap.val();
-            if(d) {
-                document.getElementById('editName').value = d.name || '';
-                document.getElementById('editBio').value = d.bio || '';
-                document.getElementById('editStatus').value = d.status || '';
+            try {
+                const snap = await db.ref('users/' + me.uid).once('value');
+                const d = snap.val();
+                if(d) {
+                    document.getElementById('editName').value = d.name || '';
+                    document.getElementById('editBio').value = d.bio || '';
+                    document.getElementById('editStatus').value = d.status || '';
+                }
+            } catch(e) {
+                console.error("Error loading profile:", e);
             }
         }
         
         async function saveProfile() {
-            const name = document.getElementById('editName').value;
-            const bio = document.getElementById('editBio').value;
-            const status = document.getElementById('editStatus').value;
-            await db.ref('users/'+me.uid).update({ name, bio, status });
-            await auth.currentUser.updateProfile({ displayName: name });
-            me.name = name;
-            document.getElementById('myName').innerText = name;
-            document.getElementById('myAvatar').innerText = name.charAt(0);
-            closeModal('profileModal');
-            showToast('Profile updated!', 'success');
+            try {
+                const name = document.getElementById('editName').value;
+                const bio = document.getElementById('editBio').value;
+                const status = document.getElementById('editStatus').value;
+                
+                if (!name) {
+                    showToast("Name cannot be empty", 'error');
+                    return;
+                }
+                
+                await db.ref('users/' + me.uid).update({ name, bio, status });
+                await auth.currentUser.updateProfile({ displayName: name });
+                me.name = name;
+                document.getElementById('myName').innerText = name;
+                document.getElementById('myAvatar').innerText = name.charAt(0);
+                closeModal('profileModal');
+                showToast('Profile updated!', 'success');
+            } catch(e) {
+                console.error("Error saving profile:", e);
+                showToast('Error updating profile', 'error');
+            }
         }
         
         async function toggleStatus() {
-            const online = document.getElementById('onlineCheck').checked;
-            await db.ref('users/'+me.uid).update({ online, lastSeen: online ? null : firebase.database.ServerValue.TIMESTAMP });
+            try {
+                const online = document.getElementById('onlineCheck').checked;
+                await db.ref('users/' + me.uid).update({ 
+                    online, 
+                    lastSeen: online ? null : firebase.database.ServerValue.TIMESTAMP 
+                });
+            } catch(e) {
+                console.error("Error toggling status:", e);
+            }
         }
 
         function loadTab(t) {
             currentTab = t;
             document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-            document.getElementById('tab'+t.charAt(0).toUpperCase() + t.slice(1)).classList.add('active');
-            if(t==='friends') loadFriends();
-            else if(t==='requests') loadRequests();
+            document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.add('active');
+            
+            if(t === 'friends') loadFriends();
+            else if(t === 'requests') loadRequests();
             else loadSearch();
         }
 
         function setupGlobalListeners(friendIds) {
-            Object.keys(msgListeners).forEach(key => msgListeners[key].off());
+            // Clean up old listeners
+            Object.keys(msgListeners).forEach(key => {
+                if (msgListeners[key]) {
+                    msgListeners[key].off();
+                }
+            });
             msgListeners = {};
+            
+            // Set up new listeners
             friendIds.forEach(uid => {
                 const cid = [me.uid, uid].sort().join('_');
-                const ref = db.ref('messages/'+cid).orderByChild('timestamp').limitToLast(1);
+                const ref = db.ref('messages/' + cid).orderByChild('timestamp').limitToLast(1);
                 msgListeners[uid] = ref;
-                let isFirstEvent = true;
+                
                 ref.on('child_added', snap => {
-                    if (isFirstEvent) { isFirstEvent = false; return; }
                     const msg = snap.val();
-                    if(msg.sender !== me.uid && chatId !== cid) {
+                    if(msg && msg.sender !== me.uid && chatId !== cid) {
                         playSound('message');
-                        notifyUser("New Message", `From: ${msg.senderName || 'User'}`);
-                        if(!unreadCounts[uid]) unreadCounts[uid] = 0;
+                        if (!unreadCounts[uid]) unreadCounts[uid] = 0;
                         unreadCounts[uid]++;
                         if(currentTab === 'friends') loadFriends();
                     }
@@ -732,61 +881,123 @@
         }
 
         async function loadFriends() {
-            const snap = await db.ref('friendships').orderByChild(me.uid+'/status').equalTo('accepted').once('value');
-            const data = snap.val() || {};
-            const ids = [];
-            Object.keys(data).forEach(k => {
-                const f = data[k]; if(f[me.uid]) ids.push(Object.keys(f).find(x => x !== me.uid));
-            });
-            setupGlobalListeners(ids);
-            renderUsers(ids, 'friends');
+            try {
+                const snap = await db.ref('friendships').once('value');
+                const data = snap.val() || {};
+                const ids = [];
+                
+                Object.keys(data).forEach(k => {
+                    const f = data[k]; 
+                    if (f && f[me.uid] && f[me.uid].status === 'accepted') {
+                        const otherId = Object.keys(f).find(x => x !== me.uid);
+                        if (otherId) ids.push(otherId);
+                    }
+                });
+                
+                setupGlobalListeners(ids);
+                renderUsers(ids, 'friends');
+            } catch(e) {
+                console.error("Error loading friends:", e);
+            }
         }
 
         async function loadRequests() {
-            const snap = await db.ref('friendRequests').orderByChild('to').equalTo(me.uid).once('value');
-            const data = snap.val() || {};
-            const ids = [], reqData = {};
-            Object.keys(data).forEach(k => { if(data[k].status === 'pending') { ids.push(data[k].from); reqData[data[k].from] = k; }});
-            const badge = document.getElementById('reqBadge');
-            badge.style.display = ids.length > 0 ? 'inline' : 'none';
-            badge.innerText = ids.length;
-            renderUsers(ids, 'requests', reqData);
+            try {
+                const snap = await db.ref('friendRequests').orderByChild('to').equalTo(me.uid).once('value');
+                const data = snap.val() || {};
+                const ids = [];
+                const reqData = {};
+                
+                Object.keys(data).forEach(k => { 
+                    if(data[k].status === 'pending') { 
+                        ids.push(data[k].from); 
+                        reqData[data[k].from] = k; 
+                    }
+                });
+                
+                const badge = document.getElementById('reqBadge');
+                badge.style.display = ids.length > 0 ? 'inline' : 'none';
+                badge.innerText = ids.length;
+                
+                renderUsers(ids, 'requests', reqData);
+            } catch(e) {
+                console.error("Error loading requests:", e);
+            }
         }
 
         async function loadSearch() {
-            const snap = await db.ref('users').once('value');
-            const users = snap.val() || {};
-            const fSnap = await db.ref('friendships').once('value');
-            const fs = fSnap.val() || {};
-            const friendIds = [];
-            Object.keys(fs).forEach(k => { if(fs[k][me.uid]) friendIds.push(Object.keys(fs[k]).find(x => x !== me.uid)); });
-            const rSnap = await db.ref('friendRequests').orderByChild('from').equalTo(me.uid).once('value');
-            const rs = rSnap.val() || {};
-            const pendingIds = [];
-            Object.keys(rs).forEach(k => pendingIds.push(rs[k].to));
-            const list = [];
-            Object.keys(users).forEach(uid => {
-                const u = users[uid];
-                if(uid !== me.uid && !friendIds.includes(uid) && !pendingIds.includes(uid) && u.verified === true) list.push({uid, ...u});
-            });
-            renderSearch(list);
+            try {
+                const snap = await db.ref('users').once('value');
+                const users = snap.val() || {};
+                
+                const fSnap = await db.ref('friendships').once('value');
+                const fs = fSnap.val() || {};
+                const friendIds = [];
+                Object.keys(fs).forEach(k => { 
+                    if (fs[k] && fs[k][me.uid]) {
+                        const otherId = Object.keys(fs[k]).find(x => x !== me.uid);
+                        if (otherId) friendIds.push(otherId);
+                    }
+                });
+                
+                const rSnap = await db.ref('friendRequests').orderByChild('from').equalTo(me.uid).once('value');
+                const rs = rSnap.val() || {};
+                const pendingIds = [];
+                Object.keys(rs).forEach(k => pendingIds.push(rs[k].to));
+                
+                const list = [];
+                Object.keys(users).forEach(uid => {
+                    const u = users[uid];
+                    if(uid !== me.uid && !friendIds.includes(uid) && !pendingIds.includes(uid) && u.verified === true) {
+                        list.push({uid, ...u});
+                    }
+                });
+                
+                renderSearch(list);
+            } catch(e) {
+                console.error("Error loading search:", e);
+            }
         }
 
         async function renderUsers(ids, type, reqData = {}) {
             const cont = document.getElementById('sidebarContent');
-            if(ids.length === 0) { cont.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No ${type}</div>`; return; }
+            if(ids.length === 0) { 
+                cont.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No ${type}</div>`; 
+                return; 
+            }
+            
             let html = '';
             for(let uid of ids) {
-                const uSnap = await db.ref('users/'+uid).once('value');
-                const u = uSnap.val(); if(!u) continue;
-                const status = u.online ? '' : 'offline';
-                const unread = unreadCounts[uid] || 0;
-                const unreadClass = unread > 0 ? 'has-unread' : '';
-                const unreadBadgeHtml = unread > 0 ? `<div class="unread-badge">${unread}</div>` : '';
-                if(type === 'friends') {
-                    html += `<div class="user-item ${unreadClass}" onclick="openChat('${uid}')"><div class="avatar">${(u.name||'U').charAt(0)}</div><div><h4>${u.name}</h4><p style="font-size:11px;color:#888">${u.status||''}</p></div><div class="user-status ${status}"></div>${unreadBadgeHtml}</div>`;
-                } else if(type === 'requests') {
-                    html += `<div class="user-item"><div class="avatar">${(u.name||'U').charAt(0)}</div><div><h4>${u.name}</h4></div><button class="action-btn-sm accept-sm" onclick="acceptReq('${uid}', '${reqData[uid]}')">✓</button><button class="action-btn-sm reject-sm" onclick="rejectReq('${reqData[uid]}')">✗</button></div>`;
+                try {
+                    const uSnap = await db.ref('users/' + uid).once('value');
+                    const u = uSnap.val(); 
+                    if(!u) continue;
+                    
+                    const status = u.online ? '' : 'offline';
+                    const unread = unreadCounts[uid] || 0;
+                    const unreadClass = unread > 0 ? 'has-unread' : '';
+                    const unreadBadgeHtml = unread > 0 ? `<div class="unread-badge">${unread}</div>` : '';
+                    
+                    if(type === 'friends') {
+                        html += `<div class="user-item ${unreadClass}" onclick="openChat('${uid}')">
+                            <div class="avatar">${(u.name||'U').charAt(0)}</div>
+                            <div>
+                                <h4>${u.name}</h4>
+                                <p style="font-size:11px;color:#888">${u.status || ''}</p>
+                            </div>
+                            <div class="user-status ${status}"></div>
+                            ${unreadBadgeHtml}
+                        </div>`;
+                    } else if(type === 'requests') {
+                        html += `<div class="user-item">
+                            <div class="avatar">${(u.name||'U').charAt(0)}</div>
+                            <div><h4>${u.name}</h4></div>
+                            <button class="action-btn-sm accept-sm" onclick="acceptReq('${uid}', '${reqData[uid]}')">✓</button>
+                            <button class="action-btn-sm reject-sm" onclick="rejectReq('${reqData[uid]}')">✗</button>
+                        </div>`;
+                    }
+                } catch(e) {
+                    console.error("Error rendering user:", e);
                 }
             }
             cont.innerHTML = html;
@@ -794,106 +1005,299 @@
 
         function renderSearch(list) {
             const cont = document.getElementById('sidebarContent');
-            if(list.length === 0) { cont.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No users found</div>`; return; }
+            if(list.length === 0) { 
+                cont.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No users found</div>`; 
+                return; 
+            }
+            
             let html = '';
             list.forEach(u => {
-                html += `<div class="user-item"><div class="avatar">${(u.name||'U').charAt(0)}</div><div><h4>${u.name}</h4><p style="font-size:11px;color:#888">${u.email}</p></div><button class="action-btn-sm add-sm" onclick="addFriend('${u.uid}')">Add</button></div>`;
+                html += `<div class="user-item">
+                    <div class="avatar">${(u.name||'U').charAt(0)}</div>
+                    <div>
+                        <h4>${u.name}</h4>
+                        <p style="font-size:11px;color:#888">${u.email}</p>
+                    </div>
+                    <button class="action-btn-sm add-sm" onclick="addFriend('${u.uid}')">Add</button>
+                </div>`;
             });
             cont.innerHTML = html;
         }
 
-        async function addFriend(toUid) { await db.ref('friendRequests').push({ from: me.uid, to: toUid, status: 'pending' }); showToast('Request sent!', 'success'); loadSearch(); }
-        async function acceptReq(uid, key) { const fid = [me.uid, uid].sort().join('_'); await db.ref('friendRequests/'+key).remove(); await db.ref('friendships/'+fid).set({ [me.uid]: {status:'accepted'}, [uid]: {status:'accepted'} }); showToast('Friend added!', 'success'); loadRequests(); }
-        async function rejectReq(key) { await db.ref('friendRequests/'+key).remove(); loadRequests(); }
+        async function addFriend(toUid) { 
+            try {
+                await db.ref('friendRequests').push({ 
+                    from: me.uid, 
+                    to: toUid, 
+                    status: 'pending',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                }); 
+                showToast('Friend request sent!', 'success'); 
+                loadSearch(); 
+            } catch(e) {
+                console.error("Error adding friend:", e);
+                showToast('Error sending request', 'error');
+            }
+        }
+        
+        async function acceptReq(uid, key) { 
+            try {
+                const fid = [me.uid, uid].sort().join('_'); 
+                await db.ref('friendRequests/' + key).remove(); 
+                await db.ref('friendships/' + fid).set({ 
+                    [me.uid]: { status: 'accepted' }, 
+                    [uid]: { status: 'accepted' } 
+                }); 
+                showToast('Friend added!', 'success'); 
+                loadRequests(); 
+            } catch(e) {
+                console.error("Error accepting request:", e);
+                showToast('Error accepting request', 'error');
+            }
+        }
+        
+        async function rejectReq(key) { 
+            try {
+                await db.ref('friendRequests/' + key).remove(); 
+                loadRequests(); 
+            } catch(e) {
+                console.error("Error rejecting request:", e);
+                showToast('Error rejecting request', 'error');
+            }
+        }
 
         function listenRequests() {
             db.ref('friendRequests').orderByChild('to').equalTo(me.uid).on('value', snap => {
-                const data = snap.val() || {}; let count = 0;
-                Object.keys(data).forEach(k => { if(data[k].status === 'pending') count++; });
-                const badge = document.getElementById('reqBadge'); badge.style.display = count > 0 ? 'inline' : 'none'; badge.innerText = count;
+                const data = snap.val() || {}; 
+                let count = 0;
+                Object.keys(data).forEach(k => { 
+                    if(data[k] && data[k].status === 'pending') count++; 
+                });
+                const badge = document.getElementById('reqBadge'); 
+                badge.style.display = count > 0 ? 'inline' : 'none'; 
+                badge.innerText = count;
             });
         }
 
         async function openChat(uid) {
-            const uSnap = await db.ref('users/'+uid).once('value');
-            friend = { uid, ...uSnap.val() };
-            chatId = [me.uid, friend.uid].sort().join('_');
-            unreadCounts[uid] = 0; 
-            document.getElementById('chatAvatar').innerText = (friend.name||'U').charAt(0);
-            document.getElementById('chatName').innerText = friend.name;
-            document.getElementById('msgInput').disabled = false; document.getElementById('sendBtn').disabled = false;
-            document.getElementById('videoCallBtn').disabled = false; document.getElementById('audioCallBtn').disabled = false;
-            db.ref('chats/'+chatId).set({ [me.uid]: true, [friend.uid]: true });
-            if(window.innerWidth <= 768) document.getElementById('appContainer').classList.add('chat-open');
-            document.getElementById('msgBox').innerHTML = '';
-            loadMessages(); listenTyping(); loadFriends(); 
+            try {
+                const uSnap = await db.ref('users/' + uid).once('value');
+                friend = { uid, ...uSnap.val() };
+                chatId = [me.uid, friend.uid].sort().join('_');
+                
+                // Clear unread count
+                unreadCounts[uid] = 0; 
+                
+                // Update UI
+                document.getElementById('chatAvatar').innerText = (friend.name || 'U').charAt(0);
+                document.getElementById('chatName').innerText = friend.name;
+                document.getElementById('msgInput').disabled = false; 
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('videoCallBtn').disabled = false; 
+                document.getElementById('audioCallBtn').disabled = false;
+                
+                // Track this chat
+                await db.ref('chats/' + chatId).set({ 
+                    [me.uid]: true, 
+                    [friend.uid]: true 
+                });
+                
+                // Mobile view
+                if(window.innerWidth <= 768) {
+                    document.getElementById('appContainer').classList.add('chat-open');
+                }
+                
+                // Clear and load messages
+                document.getElementById('msgBox').innerHTML = '';
+                loadMessages(); 
+                listenTyping(); 
+                loadFriends(); 
+            } catch(e) {
+                console.error("Error opening chat:", e);
+                showToast('Error opening chat', 'error');
+            }
         }
 
-        function goBack() { document.getElementById('appContainer').classList.remove('chat-open'); }
+        function goBack() { 
+            document.getElementById('appContainer').classList.remove('chat-open'); 
+        }
 
         function loadMessages() {
-            db.ref('messages/'+chatId).off();
-            db.ref('messages/'+chatId).orderByChild('timestamp').on('child_added', async snap => {
-                const msg = snap.val(); const msgId = snap.key;
-                if(msg.sender !== me.uid && msg.status !== 'seen') db.ref('messages/'+chatId+'/'+msgId).update({status: 'seen'});
+            // Clean up old listeners
+            db.ref('messages/' + chatId).off();
+            
+            // Load messages
+            db.ref('messages/' + chatId).orderByChild('timestamp').on('child_added', async snap => {
+                const msg = snap.val(); 
+                const msgId = snap.key;
+                
+                // Mark as seen if received
+                if(msg && msg.sender !== me.uid && msg.status !== 'seen') {
+                    await db.ref('messages/' + chatId + '/' + msgId).update({status: 'seen'});
+                }
                 renderMessage(msgId, msg);
             });
-            db.ref('messages/'+chatId).on('child_changed', snap => {
-                const msg = snap.val(); const msgId = snap.key; const el = document.getElementById('msg-'+msgId);
-                if(el) {
-                    if(msg.deleted) { el.querySelector('.message-content').innerHTML = "Message deleted"; el.classList.add('deleted'); }
-                    else if (msg.status === 'seen' && msg.sender === me.uid) { const statusEl = el.querySelector('.status-tick'); if(statusEl) { statusEl.innerHTML = '✓✓'; statusEl.classList.add('seen'); } }
+            
+            // Listen for message updates (seen status, deletion)
+            db.ref('messages/' + chatId).on('child_changed', snap => {
+                const msg = snap.val(); 
+                const msgId = snap.key; 
+                const el = document.getElementById('msg-' + msgId);
+                
+                if(el && msg) {
+                    if(msg.deleted) { 
+                        const contentEl = el.querySelector('.message-content');
+                        if (contentEl) contentEl.innerHTML = "Message deleted"; 
+                        el.classList.add('deleted'); 
+                    } else if (msg.status === 'seen' && msg.sender === me.uid) { 
+                        const statusEl = el.querySelector('.status-tick'); 
+                        if(statusEl) { 
+                            statusEl.innerHTML = '✓✓'; 
+                            statusEl.classList.add('seen'); 
+                        } 
+                    }
                 }
             });
         }
 
         function renderMessage(id, msg) {
+            if (!msg) return;
+            
             const box = document.getElementById('msgBox');
             const sent = msg.sender === me.uid;
             const div = document.createElement('div');
             div.className = `message ${sent ? 'sent' : 'received'}`;
-            div.id = 'msg-'+id;
+            div.id = 'msg-' + id;
+            
             let content = '';
-            if(msg.deleted) { content = `<div class="message-content" style="background:#eee; color:#888;">Message deleted</div>`; div.classList.add('deleted'); }
-            else if(msg.image) { content = `<img src="${msg.image}" class="message-img" onclick="showImage('${msg.image}')"><div class="message-content">${msg.text || ''}</div>`; }
-            else { content = `<div class="message-content">${msg.text}</div>`; }
-            const time = new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            if(msg.deleted) { 
+                content = `<div class="message-content" style="background:#eee; color:#888;">Message deleted</div>`; 
+                div.classList.add('deleted'); 
+            } else if(msg.image) { 
+                content = `<img src="${msg.image}" class="message-img" onclick="showImage('${msg.image}')"><div class="message-content">${msg.text || ''}</div>`; 
+            } else { 
+                content = `<div class="message-content">${msg.text || ''}</div>`; 
+            }
+            
+            const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
             let statusHtml = '';
-            if(sent) { if(msg.status === 'seen') statusHtml = '<span class="status-tick seen">✓✓</span>'; else statusHtml = '<span class="status-tick">✓</span>'; }
+            
+            if(sent) { 
+                if(msg.status === 'seen') statusHtml = '<span class="status-tick seen">✓✓</span>'; 
+                else statusHtml = '<span class="status-tick">✓</span>'; 
+            }
+            
             div.innerHTML = `${content}<div class="message-time">${time} ${statusHtml} ${sent ? `<span class="msg-actions"><button class="del-btn" onclick="deleteMsg('${id}')">🗑️</button></span>` : ''}</div>`;
+            
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
         }
 
         async function sendMessage() {
-            const text = document.getElementById('msgInput').value.trim(); if(!text || !chatId) return;
-            clearTimeout(typingTimer); db.ref('typing/'+chatId+'/'+me.uid).remove();
-            await db.ref('messages/'+chatId).push({ sender: me.uid, senderName: me.name, text, timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' });
-            playSound('sent');
-            document.getElementById('msgInput').value = '';
+            const text = document.getElementById('msgInput').value.trim(); 
+            if(!text || !chatId) return;
+            
+            try {
+                // Clear typing indicator
+                clearTimeout(typingTimer); 
+                await db.ref('typing/' + chatId + '/' + me.uid).remove();
+                
+                // Send message
+                await db.ref('messages/' + chatId).push({ 
+                    sender: me.uid, 
+                    senderName: me.name, 
+                    text, 
+                    timestamp: firebase.database.ServerValue.TIMESTAMP, 
+                    status: 'sent' 
+                });
+                
+                playSound('sent');
+                document.getElementById('msgInput').value = '';
+            } catch(e) {
+                console.error("Error sending message:", e);
+                showToast('Error sending message', 'error');
+            }
         }
 
-        function handleTyping() { if(!chatId) return; db.ref('typing/'+chatId+'/'+me.uid).set(true); clearTimeout(typingTimer); typingTimer = setTimeout(() => db.ref('typing/'+chatId+'/'+me.uid).remove(), 2000); }
-        function listenTyping() { if(!chatId) return; db.ref('typing/'+chatId).on('value', snap => { const data = snap.val(); const div = document.getElementById('typingDiv'); if(data && data[friend.uid]) div.style.display = 'block'; else div.style.display = 'none'; }); }
+        function handleTyping() { 
+            if(!chatId) return; 
+            db.ref('typing/' + chatId + '/' + me.uid).set(true); 
+            clearTimeout(typingTimer); 
+            typingTimer = setTimeout(() => db.ref('typing/' + chatId + '/' + me.uid).remove(), 2000); 
+        }
+        
+        function listenTyping() { 
+            if(!chatId) return; 
+            db.ref('typing/' + chatId).on('value', snap => { 
+                const data = snap.val(); 
+                const div = document.getElementById('typingDiv'); 
+                if(data && data[friend.uid]) div.style.display = 'block'; 
+                else div.style.display = 'none'; 
+            }); 
+        }
 
         async function handleImageUpload(e) {
-            const file = e.target.files[0]; if(!file || !chatId) return;
+            const file = e.target.files[0]; 
+            if(!file || !chatId) return;
+            
+            // Check file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('Image too large (max 5MB)', 'error');
+                return;
+            }
+            
             try {
                 showToast('Uploading image...', 'info');
                 const path = `chat_images/${chatId}/${Date.now()}_${file.name}`;
-                const ref = storage.ref(path); await ref.put(file);
+                const ref = storage.ref(path); 
+                await ref.put(file);
                 const url = await ref.getDownloadURL();
-                await db.ref('messages/'+chatId).push({ sender: me.uid, image: url, text: '', timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' });
-                playSound('sent'); showToast('Image sent!', 'success');
-            } catch(err) { console.error(err); showToast('Upload failed', 'error'); }
+                
+                await db.ref('messages/' + chatId).push({ 
+                    sender: me.uid, 
+                    image: url, 
+                    text: '', 
+                    timestamp: firebase.database.ServerValue.TIMESTAMP, 
+                    status: 'sent' 
+                });
+                
+                playSound('sent'); 
+                showToast('Image sent!', 'success');
+            } catch(err) { 
+                console.error(err); 
+                showToast('Upload failed: ' + err.message, 'error'); 
+            }
             e.target.value = '';
         }
 
-        function showImage(src) { document.getElementById('previewImg').src = src; openModal('imagePreviewModal'); }
-        function deleteMsg(id) { deleteTarget = id; openModal('deleteModal'); }
-        async function confirmDelete() { if(!deleteTarget) return; await db.ref('messages/'+chatId+'/'+deleteTarget).update({ deleted: true, text: '', image: '' }); closeModal('deleteModal'); deleteTarget = null; }
+        function showImage(src) { 
+            document.getElementById('previewImg').src = src; 
+            openModal('imagePreviewModal'); 
+        }
+        
+        function deleteMsg(id) { 
+            deleteTarget = id; 
+            openModal('deleteModal'); 
+        }
+        
+        async function confirmDelete() { 
+            if(!deleteTarget || !chatId) return; 
+            
+            try {
+                await db.ref('messages/' + chatId + '/' + deleteTarget).update({ 
+                    deleted: true, 
+                    text: '', 
+                    image: '' 
+                }); 
+                closeModal('deleteModal'); 
+                deleteTarget = null; 
+            } catch(e) {
+                console.error("Error deleting message:", e);
+                showToast('Error deleting message', 'error');
+            }
+        }
 
-        /* --- WEBRTC CALL LOGIC --- */
+        /* --- WEBRTC CALL LOGIC (KEPT AS IS) --- */
         
         function createPeerConnection() {
             pc = new RTCPeerConnection(servers);
@@ -906,25 +1310,42 @@
             const overlay = document.getElementById('callStatusOverlay');
             const title = document.getElementById('overlayTitle');
             const statusText = document.getElementById('overlayStatus');
-            if (status === 'calling') { overlay.className = "call-status-overlay"; title.innerText = "Calling " + friend.name; statusText.innerText = "Ringing..."; }
-            else if (status === 'connected') { overlay.className = "call-status-overlay hidden"; }
-            else if (status === 'ended') { overlay.className = "call-status-overlay"; title.innerText = "Call Ended"; statusText.innerText = text || "0m 0s"; }
+            if (status === 'calling') { 
+                overlay.className = "call-status-overlay"; 
+                title.innerText = "Calling " + (friend ? friend.name : 'User'); 
+                statusText.innerText = "Ringing..."; 
+            } else if (status === 'connected') { 
+                overlay.className = "call-status-overlay hidden"; 
+            } else if (status === 'ended') { 
+                overlay.className = "call-status-overlay"; 
+                title.innerText = "Call Ended"; 
+                statusText.innerText = text || "0m 0s"; 
+            }
         }
 
         async function getMediaStream(videoOn) {
-            const constraints = { video: videoOn ? { facingMode: currentFacingMode } : false, audio: true };
+            const constraints = { 
+                video: videoOn ? { facingMode: currentFacingMode } : false, 
+                audio: true 
+            };
             return await navigator.mediaDevices.getUserMedia(constraints);
         }
 
         async function startCall(type) {
+            if (!friend) {
+                showToast("Select a friend first", 'error');
+                return;
+            }
+            
             callType = type;
             callId = Date.now().toString();
+            
             try {
                 myStream = await getMediaStream(type === 'video');
                 document.getElementById('localVid').srcObject = myStream;
                 document.getElementById('remoteLabel').innerText = friend.name; 
                 
-                // Show/hide switch camera button based on type
+                // Show/hide switch camera button
                 document.getElementById('switchCamBtn').style.display = (type === 'video') ? 'flex' : 'none';
                 
                 openModal('callModal');
@@ -933,30 +1354,40 @@
                 createPeerConnection();
                 
                 pc.onicecandidate = (event) => {
-                    if(event.candidate) db.ref(`calls/${callId}/callerCandidates`).push(event.candidate.toJSON());
+                    if(event.candidate) {
+                        db.ref(`calls/${callId}/callerCandidates`).push(event.candidate.toJSON());
+                    }
                 };
 
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
 
-                await db.ref('calls/'+callId).set({
-                    caller: me.uid, callee: friend.uid, type: type,
+                await db.ref('calls/' + callId).set({
+                    caller: me.uid, 
+                    callee: friend.uid, 
+                    type: type,
                     offer: { type: offer.type, sdp: offer.sdp },
-                    status: 'ringing', timestamp: firebase.database.ServerValue.TIMESTAMP
+                    status: 'ringing', 
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
                 listenForCallStatus();
 
                 db.ref(`calls/${callId}/answer`).on('value', async (snapshot) => {
                     const data = snapshot.val();
-                    if(data && !pc.currentRemoteDescription) await pc.setRemoteDescription(new RTCSessionDescription(data));
+                    if(data && !pc.currentRemoteDescription) {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data));
+                    }
                 });
                 
                 db.ref(`calls/${callId}/calleeCandidates`).on('child_added', async (snapshot) => {
-                    if(snapshot.val()) await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                    if(snapshot.val()) {
+                        await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                    }
                 });
 
             } catch(err) {
+                console.error("Call start error:", err);
                 showToast("Could not start call: " + err.message, 'error');
                 endCall(true); 
             }
@@ -965,15 +1396,20 @@
         function listenCalls() {
             db.ref('calls').orderByChild('callee').equalTo(me.uid).on('child_added', async snap => {
                 const call = snap.val();
-                if(call.status === 'ringing') {
+                if(call && call.status === 'ringing') {
                     callId = snap.key;
                     callType = call.type;
-                    const uSnap = await db.ref('users/'+call.caller).once('value');
-                    const caller = uSnap.val();
-                    document.getElementById('callerName').innerText = caller.name;
-                    document.getElementById('callTypeText').innerText = `Incoming ${call.type} call...`;
-                    playSound('ring');
-                    openModal('incomingModal');
+                    
+                    try {
+                        const uSnap = await db.ref('users/' + call.caller).once('value');
+                        const caller = uSnap.val();
+                        document.getElementById('callerName').innerText = caller ? caller.name : 'User';
+                        document.getElementById('callTypeText').innerText = `Incoming ${call.type} call...`;
+                        playSound('ring');
+                        openModal('incomingModal');
+                    } catch(e) {
+                        console.error("Error handling incoming call:", e);
+                    }
                 }
             });
         }
@@ -981,15 +1417,17 @@
         async function answerCall() {
             stopSound();
             closeModal('incomingModal');
+            
             try {
                 myStream = await getMediaStream(callType === 'video');
                 document.getElementById('localVid').srcObject = myStream;
                 
                 document.getElementById('switchCamBtn').style.display = (callType === 'video') ? 'flex' : 'none';
 
-                const callSnap = await db.ref('calls/'+callId).once('value');
+                const callSnap = await db.ref('calls/' + callId).once('value');
                 const callerId = callSnap.val().caller;
-                const uSnap = await db.ref('users/'+callerId).once('value');
+                
+                const uSnap = await db.ref('users/' + callerId).once('value');
                 document.getElementById('remoteLabel').innerText = uSnap.val().name;
 
                 openModal('callModal');
@@ -998,7 +1436,9 @@
                 createPeerConnection();
 
                 pc.onicecandidate = (event) => {
-                    if(event.candidate) db.ref(`calls/${callId}/calleeCandidates`).push(event.candidate.toJSON());
+                    if(event.candidate) {
+                        db.ref(`calls/${callId}/calleeCandidates`).push(event.candidate.toJSON());
+                    }
                 };
 
                 if(callSnap.val().offer) {
@@ -1010,81 +1450,118 @@
                 }
 
                 db.ref(`calls/${callId}/callerCandidates`).on('child_added', async (snapshot) => {
-                    if(snapshot.val()) await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                    if(snapshot.val()) {
+                        await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+                    }
                 });
 
                 listenForCallStatus();
 
             } catch(err) {
+                console.error("Answer call error:", err);
                 showToast("Could not answer: " + err.message, 'error');
                 endCall(true);
             }
         }
 
         function listenForCallStatus() {
-            if(callStatusListener) db.ref('calls/'+callId).off('value', callStatusListener);
-            callStatusListener = db.ref('calls/'+callId).on('value', (snapshot) => {
+            if(callStatusListener) {
+                db.ref('calls/' + callId).off('value', callStatusListener);
+            }
+            
+            callStatusListener = db.ref('calls/' + callId).on('value', (snapshot) => {
                 const data = snapshot.val();
                 if(!data) return;
-                if(data.status === 'connected') { callStartTime = Date.now(); setCallUI('connected'); }
-                if(data.status === 'ended' || data.status === 'rejected') endCall(true); 
+                
+                if(data.status === 'connected') { 
+                    callStartTime = Date.now(); 
+                    setCallUI('connected'); 
+                }
+                if(data.status === 'ended' || data.status === 'rejected') {
+                    endCall(true); 
+                }
             });
         }
 
         async function endCall(isRemoteEnd) {
             let durationStr = "";
-            if (callStartTime) { const diff = Math.floor((Date.now() - callStartTime) / 1000); durationStr = `${Math.floor(diff / 60)}m ${diff % 60}s`; }
+            if (callStartTime) { 
+                const diff = Math.floor((Date.now() - callStartTime) / 1000); 
+                durationStr = `${Math.floor(diff / 60)}m ${diff % 60}s`; 
+            }
 
-            if(!isRemoteEnd && callId) { setCallUI('ended', durationStr); await db.ref('calls/'+callId).update({status: 'ended'}); await new Promise(r => setTimeout(r, 1500)); }
+            if(!isRemoteEnd && callId) { 
+                setCallUI('ended', durationStr); 
+                await db.ref('calls/' + callId).update({status: 'ended'}); 
+                await new Promise(r => setTimeout(r, 1500)); 
+            }
 
-            closeModal('callModal'); closeModal('incomingModal'); stopSound();
-            if(pc) { pc.close(); pc = null; }
-            if(myStream) { myStream.getTracks().forEach(t => t.stop()); myStream = null; }
-            if(callStatusListener) db.ref('calls/'+callId).off('value', callStatusListener);
-            callStartTime = null; callId = null;
+            closeModal('callModal'); 
+            closeModal('incomingModal'); 
+            stopSound();
+            
+            if(pc) { 
+                pc.close(); 
+                pc = null; 
+            }
+            if(myStream) { 
+                myStream.getTracks().forEach(t => t.stop()); 
+                myStream = null; 
+            }
+            if(callStatusListener) {
+                db.ref('calls/' + callId).off('value', callStatusListener);
+            }
+            
+            callStartTime = null; 
+            callId = null;
         }
 
-        async function rejectCall() { stopSound(); if(callId) await db.ref(`calls/${callId}`).update({status: 'rejected'}); closeModal('incomingModal'); callId = null; }
+        async function rejectCall() { 
+            stopSound(); 
+            if(callId) {
+                await db.ref(`calls/${callId}`).update({status: 'rejected'}); 
+            }
+            closeModal('incomingModal'); 
+            callId = null; 
+        }
 
         function toggleMic() { 
             if(myStream) { 
                 const track = myStream.getAudioTracks()[0]; 
-                if(track) track.enabled = !track.enabled; 
-                const btn = document.getElementById('micBtn');
-                btn.classList.toggle('active', !track.enabled); // Visual feedback
+                if(track) {
+                    track.enabled = !track.enabled; 
+                    const btn = document.getElementById('micBtn');
+                    btn.classList.toggle('active', !track.enabled);
+                }
             } 
         }
         
         function toggleCam() { 
             if(myStream && callType === 'video') { 
                 const track = myStream.getVideoTracks()[0]; 
-                if(track) track.enabled = !track.enabled; 
-                const btn = document.getElementById('camBtn');
-                btn.classList.toggle('active', !track.enabled); // Visual feedback
+                if(track) {
+                    track.enabled = !track.enabled; 
+                    const btn = document.getElementById('camBtn');
+                    btn.classList.toggle('active', !track.enabled);
+                }
             } 
         }
 
         async function switchCamera() {
             if(callType !== 'video' || !myStream) return;
             
-            // Toggle facing mode
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
             
             try {
-                // Get new stream with new facing mode
                 const newStream = await getMediaStream(true);
                 const newVideoTrack = newStream.getVideoTracks()[0];
                 
-                // Replace track in PeerConnection
-                const sender = pc.getSenders().find(s => s.track.kind === 'video');
+                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
                 if(sender) await sender.replaceTrack(newVideoTrack);
                 
-                // Stop old video track
                 const oldVideoTrack = myStream.getVideoTracks()[0];
                 if(oldVideoTrack) oldVideoTrack.stop();
                 
-                // Update local stream reference and video element
-                // We keep audio track from old stream, add new video track
                 myStream.removeTrack(myStream.getVideoTracks()[0]);
                 myStream.addTrack(newVideoTrack);
                 document.getElementById('localVid').srcObject = myStream;
@@ -1096,8 +1573,13 @@
             }
         }
 
-        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function openModal(id) { 
+            document.getElementById(id).style.display = 'flex'; 
+        }
+        
+        function closeModal(id) { 
+            document.getElementById(id).style.display = 'none'; 
+        }
         
     </script>
 </body>
