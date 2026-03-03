@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Viewport settings optimized for Mobile Apps/WebView -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="icon" type="image/png" href="Khaji.png">
     <title>Khaji Chat</title>
@@ -14,58 +13,44 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     
     <style>
-        /* --- FIXED CSS FOR MOBILE APPS --- */
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f0f2f5;
-            /* Changed position:fixed to min-height to fix WebView blank screen issues */
-            min-height: 100vh; 
+            height: 100%;
             width: 100%;
-            display: flex;
-            justify-content: center;
-            overflow: hidden; /* Prevent body scroll, handle inside containers */
+            position: fixed;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .container {
             max-width: 1200px;
             width: 100%;
-            min-height: 100vh;
+            height: 100%;
             background: white;
             display: flex;
             flex-direction: column;
-            position: relative;
+            margin: 0 auto;
         }
 
-        /* Desktop specific styles */
         @media (min-width: 769px) {
-            body { 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                padding: 20px; 
-                height: 100vh; 
-                align-items: center; /* Center the app on desktop */
-            }
-            .container { 
-                height: 100%; 
-                border-radius: 20px; 
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
-                overflow: hidden; 
-            }
+            body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; position: static; height: 100vh; }
+            .container { height: calc(100vh - 40px); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
         }
 
         /* Toast Notification System */
         .toast-container {
             position: fixed; top: 20px; right: 20px; z-index: 9999;
             display: flex; flex-direction: column; gap: 10px;
-            pointer-events: none; /* Allow clicks to pass through */
         }
         .toast {
             background: #333; color: white; padding: 12px 20px;
             border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             font-size: 14px; opacity: 0; transform: translateX(100%);
             transition: all 0.3s ease; display: flex; align-items: center; gap: 10px;
-            max-width: 300px; pointer-events: auto;
+            max-width: 300px;
         }
         .toast.show { opacity: 1; transform: translateX(0); }
         .toast.error { background: #ff4757; }
@@ -73,37 +58,23 @@
         .toast.info { background: #667eea; }
 
         /* Auth Section */
-        .auth-section { 
-            flex: 1; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            padding: 20px; 
-            text-align: center; 
-            width: 100%;
-            height: 100%;
-        }
+        .auth-section { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; }
         .auth-section h1 { color: white; margin-bottom: 30px; }
         .auth-logo { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); background: white; }
         .auth-form { width: 100%; max-width: 350px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); position: relative; }
         .auth-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
         .auth-tab { flex: 1; padding: 10px; border: none; background: none; font-weight: 600; color: #888; cursor: pointer; }
         .auth-tab.active { color: #667eea; border-bottom: 2px solid #667eea; margin-bottom: -2px; }
-        .input-group { margin-bottom: 15px; text-align: left; }
-        .input-group label { display: block; font-size: 12px; color: #666; margin-bottom: 5px; }
-        .input-group input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
-        .input-group input:focus { border-color: #667eea; }
+        .input-group { margin-bottom: 15px; }
+        .input-group input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
         .auth-btn { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-bottom: 10px; }
         .auth-btn:active { opacity: 0.8; }
-        .auth-btn:disabled { background: #ccc; cursor: not-allowed; }
         .auth-btn.secondary { background: #fff; color: #667eea; border: 1px solid #667eea; }
         .link-text { display: block; margin-top: 15px; font-size: 13px; color: #667eea; cursor: pointer; text-decoration: none; }
         .link-text:hover { text-decoration: underline; }
 
         /* App Layout */
-        .app-section { display: none; height: 100%; width: 100%; flex: 1; }
+        .app-section { display: none; height: 100%; width: 100%; }
         .app-container { display: flex; height: 100%; width: 100%; position: relative; overflow: hidden; }
 
         /* Sidebar */
@@ -113,7 +84,7 @@
             padding: 15px; background: white; border-bottom: 1px solid #eee; 
             display: flex; align-items: center; gap: 10px; cursor: pointer; 
         }
-        .user-profile:active { background: #f0f0f0; }
+        .user-profile:hover { background: #f0f0f0; }
         
         .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; overflow: hidden; }
         .avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -123,11 +94,11 @@
         .tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
         .tab { flex: 1; padding: 12px 5px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; }
         .tab.active { color: #667eea; border-bottom: 2px solid #667eea; }
-        .tab-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .tab-content { flex: 1; overflow-y: auto; }
         
         /* User Item Styles */
         .user-item { padding: 12px 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; position: relative; }
-        .user-item:active { background: #e0e0e0; }
+        .user-item:hover { background: #f0f0f0; }
         .user-item.active { background: #e8eaff; }
         .user-status { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; margin-left: auto; }
         .user-status.offline { background: #ccc; }
@@ -149,21 +120,22 @@
         /* Main Chat */
         .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; background: white; min-width: 0; }
         .chat-header { padding: 10px 15px; background: white; border-bottom: 1px solid #eee; display: flex; align-items: center; height: 60px; flex-shrink: 0; }
-        .back-btn { display: none; background: none; border: none; font-size: 20px; margin-right: 10px; cursor: pointer; padding: 10px; }
+        .back-btn { display: none; background: none; border: none; font-size: 20px; margin-right: 10px; cursor: pointer; }
         .chat-user-info { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; min-width: 0; }
         .typing-indicator { font-size: 11px; color: #667eea; font-style: italic; margin-top: 2px; display: none; }
         .call-btns { display: flex; gap: 8px; }
         
+        /* New Icon Buttons */
         .icon-btn {
             background: #f0f2f5; border: none; width: 40px; height: 40px;
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
             cursor: pointer; color: #667eea; transition: background 0.2s;
         }
-        .icon-btn:active { background: #d4d6db; }
+        .icon-btn:hover { background: #e4e6eb; }
         .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; background: #f0f2f5; }
         .icon-btn svg { width: 20px; height: 20px; fill: currentColor; }
 
-        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; background: #f9f9f9; display: flex; flex-direction: column; gap: 8px; -webkit-overflow-scrolling: touch; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; background: #f9f9f9; display: flex; flex-direction: column; gap: 8px; }
         .message { display: flex; flex-direction: column; max-width: 75%; position: relative; }
         .message.sent { align-self: flex-end; }
         .message.received { align-self: flex-start; }
@@ -180,6 +152,7 @@
         .message:hover .msg-actions { display: block; }
         .del-btn { border: none; background: none; cursor: pointer; color: #ff4757; font-size: 12px; }
 
+        /* Chat Input */
         .chat-input-area { padding: 10px; background: white; border-top: 1px solid #eee; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
         .chat-input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 15px; }
         .send-btn { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 25px; font-weight: 600; cursor: pointer; }
@@ -194,25 +167,65 @@
         .modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; }
         .modal-save-btn { width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
         
-        /* Video Call UI */
+        /* --- IMPROVED VIDEO CALL UI --- */
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
-        .video-grid { flex: 1; position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-        .video-box { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; }
+        
+        /* Remote Video Full Background */
+        .video-grid {
+            flex: 1; position: relative; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .video-box {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; display: flex; align-items: center; justify-content: center;
+        }
         .video-box video { width: 100%; height: 100%; object-fit: cover; }
-        .video-label { position: absolute; bottom: 20px; left: 20px; color: white; font-size: 14px; background: rgba(0,0,0,0.6); padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; }
-        .video-box.local-pip { position: absolute; top: 20px; right: 20px; width: 120px; height: 170px; border-radius: 15px; border: 2px solid rgba(255,255,255,0.3); overflow: hidden; z-index: 10; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .video-label {
+            position: absolute; bottom: 20px; left: 20px; color: white; font-size: 14px; 
+            background: rgba(0,0,0,0.6); padding: 5px 12px; border-radius: 20px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        /* Local Video PIP Style */
+        .video-box.local-pip {
+            position: absolute; top: 20px; right: 20px; 
+            width: 120px; height: 170px; 
+            border-radius: 15px; border: 2px solid rgba(255,255,255,0.3);
+            overflow: hidden; z-index: 10; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            cursor: grab;
+        }
         .video-box.local-pip video { object-fit: cover; }
 
-        .call-status-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 15; color: white; transition: opacity 0.3s; }
+        /* Call Overlay Status (Calling... / Ringing...) */
+        .call-status-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 15; color: white;
+            transition: opacity 0.3s;
+        }
         .call-status-overlay.hidden { opacity: 0; pointer-events: none; }
         .call-status-overlay h2 { margin-bottom: 10px; font-size: 24px; }
         .call-status-overlay p { opacity: 0.8; font-size: 14px; }
 
-        .call-controls { position: absolute; bottom: 0; left: 0; width: 100%; z-index: 20; padding: 20px; display: flex; justify-content: center; gap: 25px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); }
-        .control-btn { width: 60px; height: 60px; border-radius: 50%; border: none; font-size: 24px; cursor: pointer; background: rgba(255,255,255,0.15); color: white; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); transition: transform 0.1s; }
+        /* Call Controls Bar */
+        .call-controls { 
+            position: absolute; bottom: 0; left: 0; width: 100%; z-index: 20;
+            padding: 20px; display: flex; justify-content: center; gap: 25px; 
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        }
+        
+        .control-btn {
+            width: 60px; height: 60px; border-radius: 50%; border: none; 
+            font-size: 24px; cursor: pointer; 
+            background: rgba(255,255,255,0.15); color: white; 
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+            transition: transform 0.1s;
+        }
         .control-btn:active { transform: scale(0.95); }
         .control-btn.end { background: #ff4757; }
-        .control-btn.active { background: #fff; color: #333; }
+        .control-btn.active { background: #fff; color: #333; } /* For toggle states */
 
         .incoming-call-ui { text-align: center; padding: 30px; }
         .call-actions { display: flex; gap: 20px; justify-content: center; margin-top: 20px; }
@@ -226,6 +239,8 @@
             .app-container.chat-open .sidebar { transform: translateX(-100%); }
             .app-container.chat-open .main-content { transform: translateX(0); }
             .back-btn { display: block; }
+            
+            /* Mobile Video UI adjustments */
             .video-box.local-pip { top: 15px; right: 15px; width: 100px; height: 140px; }
         }
     </style>
@@ -242,7 +257,7 @@
     <div class="container">
         <!-- Auth -->
         <div class="auth-section" id="authSection">
-            <img src="Khaji.png" class="auth-logo" alt="Logo" onerror="this.style.display='none'">
+            <img src="Khaji.png" class="auth-logo" alt="Logo">
             <h1>Khaji Chat</h1>
             <div class="auth-form">
                 <div id="authMainContainer">
@@ -251,23 +266,23 @@
                         <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
                     </div>
                     <div id="loginForm">
-                        <div class="input-group"><input type="email" id="loginEmail" placeholder="Email" autocapitalize="off"></div>
+                        <div class="input-group"><input type="email" id="loginEmail" placeholder="Email"></div>
                         <div class="input-group"><input type="password" id="loginPass" placeholder="Password"></div>
-                        <button class="auth-btn" id="loginBtn" onclick="login()">Login</button>
+                        <button class="auth-btn" onclick="login()">Login</button>
                         <span class="link-text" onclick="showForgotPassword()">Forgot Password?</span>
                     </div>
                     <div id="registerForm" style="display:none;">
-                        <div class="input-group"><input type="text" id="regName" placeholder="Full Name" autocapitalize="words"></div>
-                        <div class="input-group"><input type="email" id="regEmail" placeholder="Email" autocapitalize="off"></div>
+                        <div class="input-group"><input type="text" id="regName" placeholder="Full Name"></div>
+                        <div class="input-group"><input type="email" id="regEmail" placeholder="Email"></div>
                         <div class="input-group"><input type="password" id="regPass" placeholder="Password"></div>
-                        <button class="auth-btn" id="regBtn" onclick="register()">Register</button>
+                        <button class="auth-btn" onclick="register()">Register</button>
                     </div>
                 </div>
 
                 <div id="forgotContainer" style="display:none;">
                     <h3 style="margin-bottom: 15px; color: #333;">Reset Password</h3>
                     <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Enter your email to receive a reset link.</p>
-                    <div class="input-group"><input type="email" id="forgotEmail" placeholder="Email" autocapitalize="off"></div>
+                    <div class="input-group"><input type="email" id="forgotEmail" placeholder="Email"></div>
                     <button class="auth-btn" onclick="resetPassword()">Send Link</button>
                     <span class="link-text" onclick="backToLogin()">Back to Login</span>
                 </div>
@@ -412,7 +427,6 @@
         </div>
     </div>
 
-    <!-- Incoming Call UI -->
     <div class="modal-overlay" id="incomingModal">
         <div class="modal-content incoming-call-ui">
             <h2 id="callerName">Caller</h2>
@@ -425,13 +439,24 @@
     </div>
 
     <script>
-        // Wait for DOM to be fully ready before initializing
-        document.addEventListener('DOMContentLoaded', () => {
-            initApp();
-        });
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
+            authDomain: "khaji-23a99.firebaseapp.com",
+            databaseURL: "https://khaji-23a99-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "khaji-23a99",
+            storageBucket: "khaji-23a99.firebasestorage.app",
+            messagingSenderId: "84794766200",
+            appId: "1:84794766200:web:207a50412961d45275ce8d"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+        const storage = firebase.storage();
 
-        // Global variables
-        let auth, db, storage;
+        // State
         let me = null;
         let friend = null;
         let chatId = null;
@@ -439,7 +464,8 @@
         let deleteTarget = null;
         let typingTimer = null;
         let unreadCounts = {}; 
-        let isInitialLoad = true;
+        let msgListeners = {}; 
+        let isAppReady = false;
 
         // WebRTC State
         let pc = null; 
@@ -450,45 +476,6 @@
         let currentFacingMode = 'user';
         let callStartTime = null;
         let callStatusListener = null;
-        let msgListeners = {}; 
-
-        async function initApp() {
-            try {
-                // Firebase Config
-                const firebaseConfig = {
-                    apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
-                    authDomain: "khaji-23a99.firebaseapp.com",
-                    databaseURL: "https://khaji-23a99-default-rtdb.asia-southeast1.firebasedatabase.app",
-                    projectId: "khaji-23a99",
-                    storageBucket: "khaji-23a99.firebasestorage.app",
-                    messagingSenderId: "84794766200",
-                    appId: "1:84794766200:web:207a50412961d45275ce8d"
-                };
-                
-                // Initialize Firebase
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
-                
-                auth = firebase.auth();
-                db = firebase.database();
-                storage = firebase.storage();
-
-                // Set Persistence to LOCAL for App-like behavior
-                try {
-                    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                } catch (e) {
-                    console.warn("Persistence already set or failed:", e);
-                }
-
-                // Handle auth state
-                auth.onAuthStateChanged(handleAuthState);
-
-            } catch (error) {
-                console.error("Initialization Error:", error);
-                showToast("Failed to initialize app. Check connection.", "error");
-            }
-        }
 
         // ----------------- UTILITY FUNCTIONS ----------------- //
 
@@ -496,7 +483,7 @@
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerText = message; // Using innerText for security
+            toast.innerHTML = message;
             container.appendChild(toast);
             setTimeout(() => toast.classList.add('show'), 10);
             setTimeout(() => {
@@ -527,58 +514,65 @@
             } catch(e){} 
         }
 
-        // ----------------- AUTH LOGIC ----------------- //
+        // ----------------- AUTH LOGIC (FIXED) ----------------- //
 
-        async function handleAuthState(user) {
+        // Handle auth state changes
+        auth.onAuthStateChanged(async user => {
             console.log("Auth state changed:", user ? user.email : "No user");
             
             if(user) {
+                // Check email verification
                 if (!user.emailVerified) {
                     console.log("Email not verified");
+                    document.getElementById('authSection').style.display = 'flex';
+                    document.getElementById('appSection').style.display = 'none';
                     showVerifyScreen(user.email);
                     return;
                 }
 
                 try {
-                    // Update user online status
-                    await db.ref('users/' + user.uid).update({ 
-                        online: true,
-                        lastSeen: firebase.database.ServerValue.TIMESTAMP 
-                    });
-                    
-                    // Get user data from database
-                    const snap = await db.ref('users/' + user.uid).once('value');
-                    const dbUser = snap.val();
-                    
-                    if (!dbUser) {
-                        // Create user profile if it doesn't exist
-                        await db.ref('users/' + user.uid).set({
+                    // Get or create user data
+                    const userRef = db.ref('users/' + user.uid);
+                    const snapshot = await userRef.once('value');
+                    const userData = snapshot.val();
+
+                    if (!userData) {
+                        // Create new user profile
+                        await userRef.set({
                             name: user.displayName || "User",
                             email: user.email,
                             online: true,
                             bio: '',
                             status: 'Hey there!',
-                            verified: true
+                            verified: true,
+                            createdAt: firebase.database.ServerValue.TIMESTAMP
                         });
+                        
                         me = { 
                             uid: user.uid, 
                             name: user.displayName || "User", 
                             email: user.email 
                         };
                     } else {
+                        // Update existing user
+                        await userRef.update({ 
+                            online: true,
+                            lastSeen: firebase.database.ServerValue.TIMESTAMP 
+                        });
+                        
                         me = { 
                             uid: user.uid, 
-                            name: dbUser.name || user.displayName || "User", 
+                            name: userData.name || user.displayName || "User", 
                             email: user.email 
                         };
                     }
-                    
+
                     // Set disconnect handlers
                     db.ref('users/' + me.uid + '/online').onDisconnect().set(false);
                     db.ref('users/' + me.uid + '/lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
                     
                     // Request notification permission
-                    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                    if (Notification.permission === 'default') {
                         Notification.requestPermission();
                     }
                     
@@ -591,13 +585,11 @@
                     
                 } catch (error) {
                     console.error("Error in auth state change:", error);
-                    showToast("Error loading user data", 'error');
-                    // Fallback to show auth section if data load fails
-                    document.getElementById('authSection').style.display = 'flex';
-                    document.getElementById('appSection').style.display = 'none';
+                    showToast("Error loading user data: " + error.message, 'error');
                 }
             } else {
                 // User is logged out
+                console.log("User logged out");
                 document.getElementById('authSection').style.display = 'flex';
                 document.getElementById('appSection').style.display = 'none';
                 me = null;
@@ -605,11 +597,11 @@
                 chatId = null;
                 backToLogin();
             }
-        }
+        });
 
         function switchAuthTab(t) {
             document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
-            if(t==='login') {
+            if(t === 'login') {
                 document.querySelectorAll('.auth-tab')[0].classList.add('active');
                 document.getElementById('loginForm').style.display = 'block';
                 document.getElementById('registerForm').style.display = 'none';
@@ -644,10 +636,8 @@
         }
 
         async function login() {
-            const btn = document.getElementById('loginBtn');
-            const originalText = btn.innerText;
             try { 
-                const email = document.getElementById('loginEmail').value;
+                const email = document.getElementById('loginEmail').value.trim();
                 const password = document.getElementById('loginPass').value;
                 
                 if (!email || !password) {
@@ -655,16 +645,16 @@
                     return;
                 }
                 
-                btn.disabled = true;
-                btn.innerText = "Logging in...";
+                showToast("Logging in...", 'info');
                 
                 const userCred = await auth.signInWithEmailAndPassword(email, password);
                 
                 if(userCred.user && !userCred.user.emailVerified) {
-                    showToast("Please verify your email to login.", 'error');
+                    showToast("Please verify your email to login. Check your spam folder.", 'error');
                     await auth.signOut();
                 } else {
                     showToast("Login Successful!", 'success');
+                    // Auth state change will handle showing the app
                 }
             } catch(e) { 
                 console.error("Login error:", e);
@@ -672,20 +662,15 @@
                 if(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') msg = "Incorrect password.";
                 else if(e.code === 'auth/user-not-found') msg = "User not found.";
                 else if(e.code === 'auth/invalid-email') msg = "Invalid email format.";
-                else if(e.code === 'auth/too-many-requests') msg = "Too many attempts. Try later.";
+                else if(e.code === 'auth/too-many-requests') msg = "Too many failed attempts. Try again later.";
                 showToast(msg, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = originalText;
             }
         }
         
         async function register() {
-            const btn = document.getElementById('regBtn');
-            const originalText = btn.innerText;
             try {
-                const name = document.getElementById('regName').value;
-                const email = document.getElementById('regEmail').value;
+                const name = document.getElementById('regName').value.trim();
+                const email = document.getElementById('regEmail').value.trim();
                 const password = document.getElementById('regPass').value;
                 
                 if(!name) { 
@@ -698,23 +683,24 @@
                     return;
                 }
                 
-                btn.disabled = true;
-                btn.innerText = "Creating...";
+                showToast("Creating account...", 'info');
 
                 const cred = await auth.createUserWithEmailAndPassword(email, password);
                 await cred.user.updateProfile({ displayName: name });
                 await cred.user.sendEmailVerification();
                 
+                // Create user in database
                 await db.ref('users/' + cred.user.uid).set({ 
                     name: name, 
                     email: cred.user.email, 
                     online: false, 
                     bio: '', 
                     status: 'Hey there!', 
-                    verified: false 
+                    verified: false,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
                 });
                 
-                showToast("Registered! Check email to verify.", 'success');
+                showToast("Registered! Check your email (including spam) to verify.", 'success');
                 showVerifyScreen(cred.user.email);
             } catch(e) { 
                 console.error("Registration error:", e);
@@ -723,21 +709,18 @@
                 else if(e.code === 'auth/invalid-email') msg = "Invalid email format.";
                 else if(e.code === 'auth/weak-password') msg = "Password too weak.";
                 showToast(msg, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = originalText;
             }
         }
 
         async function resetPassword() {
-            const email = document.getElementById('forgotEmail').value;
+            const email = document.getElementById('forgotEmail').value.trim();
             if(!email) { 
                 showToast("Please enter your email", 'error'); 
                 return; 
             }
             try { 
                 await auth.sendPasswordResetEmail(email); 
-                showToast("Password reset link sent!", 'success'); 
+                showToast("Password reset link sent! Check your inbox/spam.", 'success'); 
                 setTimeout(backToLogin, 2000);
             } catch(e) { 
                 console.error("Reset password error:", e);
@@ -763,9 +746,10 @@
                     showToast("Checking verification...", 'info');
                     await auth.currentUser.reload();
                     if(auth.currentUser.emailVerified) {
-                        showToast("Email Verified! Loading...", "success");
+                        showToast("Email Verified! Loading app...", "success");
+                        // Auth state change will handle showing the app
                     } else { 
-                        showToast("Not verified yet.", 'info'); 
+                        showToast("Not verified yet. Check your spam folder for the verification email.", 'info'); 
                     }
                 }
             } catch(e) { 
@@ -791,24 +775,22 @@
             }
         }
 
-        // ----------------- APP LOGIC ----------------- //
+        // ----------------- APP LOGIC (FIXED) ----------------- //
 
         function showApp() {
             console.log("Showing app for user:", me);
-            const authSec = document.getElementById('authSection');
-            const appSec = document.getElementById('appSection');
             
-            authSec.style.display = 'none';
-            appSec.style.display = 'flex'; // Changed to flex to ensure it takes full height
+            // Update UI elements
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('appSection').style.display = 'block';
             
-            // Update UI with user info
             document.getElementById('myName').innerText = me.name;
             document.getElementById('myAvatar').innerText = me.name.charAt(0).toUpperCase();
             
             // Load profile data
             loadProfile();
             
-            // Load friends tab
+            // Load friends list
             loadTab('friends');
         }
 
@@ -828,9 +810,9 @@
         
         async function saveProfile() {
             try {
-                const name = document.getElementById('editName').value;
-                const bio = document.getElementById('editBio').value;
-                const status = document.getElementById('editStatus').value;
+                const name = document.getElementById('editName').value.trim();
+                const bio = document.getElementById('editBio').value.trim();
+                const status = document.getElementById('editStatus').value.trim();
                 
                 if (!name) {
                     showToast("Name cannot be empty", 'error');
@@ -865,9 +847,7 @@
         function loadTab(t) {
             currentTab = t;
             document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-            const tabId = 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
-            const tabEl = document.getElementById(tabId);
-            if(tabEl) tabEl.classList.add('active');
+            document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.add('active');
             
             if(t === 'friends') loadFriends();
             else if(t === 'requests') loadRequests();
@@ -930,7 +910,7 @@
                 const reqData = {};
                 
                 Object.keys(data).forEach(k => { 
-                    if(data[k].status === 'pending') { 
+                    if(data[k] && data[k].status === 'pending') { 
                         ids.push(data[k].from); 
                         reqData[data[k].from] = k; 
                     }
@@ -1001,9 +981,9 @@
                     
                     if(type === 'friends') {
                         html += `<div class="user-item ${unreadClass}" onclick="openChat('${uid}')">
-                            <div class="avatar">${(u.name||'U').charAt(0)}</div>
+                            <div class="avatar">${(u.name || 'U').charAt(0)}</div>
                             <div>
-                                <h4>${u.name}</h4>
+                                <h4>${u.name || 'User'}</h4>
                                 <p style="font-size:11px;color:#888">${u.status || ''}</p>
                             </div>
                             <div class="user-status ${status}"></div>
@@ -1011,8 +991,8 @@
                         </div>`;
                     } else if(type === 'requests') {
                         html += `<div class="user-item">
-                            <div class="avatar">${(u.name||'U').charAt(0)}</div>
-                            <div><h4>${u.name}</h4></div>
+                            <div class="avatar">${(u.name || 'U').charAt(0)}</div>
+                            <div><h4>${u.name || 'User'}</h4></div>
                             <button class="action-btn-sm accept-sm" onclick="acceptReq('${uid}', '${reqData[uid]}')">✓</button>
                             <button class="action-btn-sm reject-sm" onclick="rejectReq('${reqData[uid]}')">✗</button>
                         </div>`;
@@ -1034,9 +1014,9 @@
             let html = '';
             list.forEach(u => {
                 html += `<div class="user-item">
-                    <div class="avatar">${(u.name||'U').charAt(0)}</div>
+                    <div class="avatar">${(u.name || 'U').charAt(0)}</div>
                     <div>
-                        <h4>${u.name}</h4>
+                        <h4>${u.name || 'User'}</h4>
                         <p style="font-size:11px;color:#888">${u.email}</p>
                     </div>
                     <button class="action-btn-sm add-sm" onclick="addFriend('${u.uid}')">Add</button>
@@ -1103,27 +1083,39 @@
         async function openChat(uid) {
             try {
                 const uSnap = await db.ref('users/' + uid).once('value');
-                friend = { uid, ...uSnap.val() };
+                const userData = uSnap.val();
+                
+                if (!userData) {
+                    showToast('User not found', 'error');
+                    return;
+                }
+                
+                friend = { uid, ...userData };
                 chatId = [me.uid, friend.uid].sort().join('_');
                 
+                // Clear unread count
                 unreadCounts[uid] = 0; 
                 
+                // Update UI
                 document.getElementById('chatAvatar').innerText = (friend.name || 'U').charAt(0);
-                document.getElementById('chatName').innerText = friend.name;
+                document.getElementById('chatName').innerText = friend.name || 'User';
                 document.getElementById('msgInput').disabled = false; 
                 document.getElementById('sendBtn').disabled = false;
                 document.getElementById('videoCallBtn').disabled = false; 
                 document.getElementById('audioCallBtn').disabled = false;
                 
+                // Track this chat
                 await db.ref('chats/' + chatId).set({ 
                     [me.uid]: true, 
                     [friend.uid]: true 
                 });
                 
+                // Mobile view
                 if(window.innerWidth <= 768) {
                     document.getElementById('appContainer').classList.add('chat-open');
                 }
                 
+                // Clear and load messages
                 document.getElementById('msgBox').innerHTML = '';
                 loadMessages(); 
                 listenTyping(); 
@@ -1139,18 +1131,22 @@
         }
 
         function loadMessages() {
+            // Clean up old listeners
             db.ref('messages/' + chatId).off();
             
+            // Load messages
             db.ref('messages/' + chatId).orderByChild('timestamp').on('child_added', async snap => {
                 const msg = snap.val(); 
                 const msgId = snap.key;
                 
+                // Mark as seen if received
                 if(msg && msg.sender !== me.uid && msg.status !== 'seen') {
                     await db.ref('messages/' + chatId + '/' + msgId).update({status: 'seen'});
                 }
                 renderMessage(msgId, msg);
             });
             
+            // Listen for message updates
             db.ref('messages/' + chatId).on('child_changed', snap => {
                 const msg = snap.val(); 
                 const msgId = snap.key; 
@@ -1210,9 +1206,11 @@
             if(!text || !chatId) return;
             
             try {
+                // Clear typing indicator
                 clearTimeout(typingTimer); 
                 await db.ref('typing/' + chatId + '/' + me.uid).remove();
                 
+                // Send message
                 await db.ref('messages/' + chatId).push({ 
                     sender: me.uid, 
                     senderName: me.name, 
@@ -1311,7 +1309,9 @@
         function createPeerConnection() {
             pc = new RTCPeerConnection(servers);
             if(myStream) myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
-            pc.ontrack = (event) => { document.getElementById('remoteVid').srcObject = event.streams[0]; };
+            pc.ontrack = (event) => { 
+                document.getElementById('remoteVid').srcObject = event.streams[0]; 
+            };
             return pc;
         }
 
@@ -1319,6 +1319,7 @@
             const overlay = document.getElementById('callStatusOverlay');
             const title = document.getElementById('overlayTitle');
             const statusText = document.getElementById('overlayStatus');
+            
             if (status === 'calling') { 
                 overlay.className = "call-status-overlay"; 
                 title.innerText = "Calling " + (friend ? friend.name : 'User'); 
@@ -1352,7 +1353,7 @@
             try {
                 myStream = await getMediaStream(type === 'video');
                 document.getElementById('localVid').srcObject = myStream;
-                document.getElementById('remoteLabel').innerText = friend.name; 
+                document.getElementById('remoteLabel').innerText = friend.name || 'User'; 
                 
                 document.getElementById('switchCamBtn').style.display = (type === 'video') ? 'flex' : 'none';
                 
@@ -1582,13 +1583,11 @@
         }
 
         function openModal(id) { 
-            const el = document.getElementById(id);
-            if(el) el.style.display = 'flex'; 
+            document.getElementById(id).style.display = 'flex'; 
         }
         
         function closeModal(id) { 
-            const el = document.getElementById(id);
-            if(el) el.style.display = 'none'; 
+            document.getElementById(id).style.display = 'none'; 
         }
         
     </script>
