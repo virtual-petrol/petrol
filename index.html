@@ -142,7 +142,7 @@
         .modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; }
         .modal-save-btn { width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
         
-        /* Video Call UI - Optimized */
+        /* Video Call UI */
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
         .video-grid { flex: 1; position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
         .video-box { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; }
@@ -401,7 +401,7 @@
         let answerListener = null;
         let msgListeners = {}; 
         
-        // FIX: Queue for ICE candidates to prevent loss before connection is ready
+        // FIX: Queue for ICE candidates
         let iceCandidatesQueue = [];
 
         async function initApp() {
@@ -989,36 +989,43 @@
             } catch(e) { showToast('Error deleting message', 'error'); }
         }
 
-        /* --- ROBUST VIDEO CALL LOGIC --- */
+        /* --- VIDEO CALL LOGIC --- */
         
+        // FIX: Added missing setCallUI function
+        function setCallUI(status, extraText = '') {
+            const overlay = document.getElementById('callStatusOverlay');
+            const title = document.getElementById('overlayTitle');
+            const text = document.getElementById('overlayStatus');
+            
+            if (status === 'calling') {
+                overlay.classList.remove('hidden');
+                title.innerText = "Calling...";
+                text.innerText = "Ringing " + (friend ? friend.name : '');
+            } else if (status === 'connecting') {
+                overlay.classList.remove('hidden');
+                title.innerText = "Connecting...";
+                text.innerText = "Please wait";
+            } else if (status === 'connected') {
+                overlay.classList.add('hidden');
+            } else if (status === 'ended') {
+                overlay.classList.remove('hidden');
+                title.innerText = "Call Ended";
+                text.innerText = extraText || "Disconnected";
+            }
+        }
+
         function createPeerConnection() {
             if(pc) return pc;
             pc = new RTCPeerConnection(servers);
             
-            // FIX: Handle ICE Candidates properly
             pc.onicecandidate = (event) => {
                 if(event.candidate) {
-                    // Push to correct path based on role (caller/callee is determined by who writes the offer)
-                    // Since we check 'callType' variable later, we can just push to both or use specific logic.
-                    // Actually, simpler: Caller writes to callerCandidates. Callee writes to calleeCandidates.
-                    
-                    // Check if we are the caller by seeing if we have an active outgoing call ID in DB
-                    // But here's the catch: we need to know WHERE to write.
-                    // Let's assume: if I started the call (startCall), I write to callerCandidates.
-                    // If I answered (answerCall), I write to calleeCandidates.
-                    
-                    // We will handle the writing inside startCall/answerCall specifically.
-                    // This global handler will just pass the candidate to a function that pushes it.
                     handleCandidate(event.candidate);
                 }
             };
 
             pc.onconnectionstatechange = () => {
                 console.log("Connection State:", pc.connectionState);
-                if(pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                    // showToast("Call connection lost", "error");
-                    // endCall(true); // Auto end on failure? Maybe too aggressive. Let's rely on status update.
-                }
             };
 
             pc.oniceconnectionstatechange = () => {
@@ -1041,13 +1048,10 @@
             return pc;
         }
 
-        // Candidate handling helpers
         function handleCandidate(candidate) {
-            // This function is overwritten dynamically in startCall and answerCall
-            // to ensure candidates go to the right database path.
+            // Overwritten by startCall/answerCall
         }
 
-        // FIX: Process Queued Candidates
         async function processIceCandidatesQueue() {
             if (pc.remoteDescription) {
                 while (iceCandidatesQueue.length) {
@@ -1100,7 +1104,6 @@
 
                 createPeerConnection();
                 
-                // FIX: Define candidate handler for CALLER
                 handleCandidate = (candidate) => {
                     db.ref(`calls/${callId}/callerCandidates`).push(candidate.toJSON());
                 };
@@ -1119,13 +1122,11 @@
 
                 listenForCallStatus();
 
-                // Listen for Answer
                 answerListener = db.ref(`calls/${callId}/answer`).on('value', async (snapshot) => {
                     const data = snapshot.val();
                     if(data && !pc.currentRemoteDescription) {
                         try {
                             await pc.setRemoteDescription(new RTCSessionDescription(data));
-                            // FIX: Process any queued ICE candidates now that we have remote description
                             await processIceCandidatesQueue();
                         } catch(e) {
                             console.error("Error setting remote desc (answer):", e);
@@ -1133,7 +1134,6 @@
                     }
                 });
                 
-                // Listen for Callee Candidates
                 candidateListenerCallee = db.ref(`calls/${callId}/calleeCandidates`).on('child_added', async (snapshot) => {
                     const candidate = snapshot.val();
                     if(candidate) {
@@ -1144,7 +1144,6 @@
                                 console.error("Error adding callee candidate:", e);
                             }
                         } else {
-                            // FIX: Queue candidate if remote description not set yet
                             iceCandidatesQueue.push(candidate);
                         }
                     }
@@ -1161,7 +1160,6 @@
             db.ref('calls').orderByChild('callee').equalTo(me.uid).on('child_added', async snap => {
                 const call = snap.val();
                 if(call && call.status === 'ringing') {
-                    // Check if call is new enough (e.g., within 30 seconds) to avoid old calls on reload
                     if(Date.now() - call.timestamp > 30000) return;
                     
                     callId = snap.key;
@@ -1199,7 +1197,6 @@
                 
                 createPeerConnection();
 
-                // FIX: Define candidate handler for CALLEE
                 handleCandidate = (candidate) => {
                     db.ref(`calls/${callId}/calleeCandidates`).push(candidate.toJSON());
                 };
@@ -1207,8 +1204,6 @@
                 if(callSnap.val().offer) {
                     try {
                         await pc.setRemoteDescription(new RTCSessionDescription(callSnap.val().offer));
-                        
-                        // FIX: Process queued candidates immediately
                         await processIceCandidatesQueue();
 
                         const answer = await pc.createAnswer();
@@ -1222,7 +1217,6 @@
                     }
                 }
 
-                // Listen for Caller Candidates
                 candidateListenerCaller = db.ref(`calls/${callId}/callerCandidates`).on('child_added', async (snapshot) => {
                     const candidate = snapshot.val();
                     if(candidate) {
@@ -1233,7 +1227,6 @@
                                 console.error("Error adding caller candidate:", e);
                             }
                         } else {
-                            // FIX: Queue candidate
                             iceCandidatesQueue.push(candidate);
                         }
                     }
@@ -1277,7 +1270,6 @@
                 await new Promise(r => setTimeout(r, 1500)); 
             }
 
-            // Cleanup Listeners
             if(answerListener) { db.ref(`calls/${callId}/answer`).off('value', answerListener); answerListener = null; }
             if(candidateListenerCaller) { db.ref(`calls/${callId}/calleeCandidates`).off('child_added', candidateListenerCaller); candidateListenerCaller = null; }
             if(candidateListenerCallee) { db.ref(`calls/${callId}/callerCandidates`).off('child_added', candidateListenerCallee); candidateListenerCallee = null; }
@@ -1296,7 +1288,6 @@
                 myStream = null; 
             }
             
-            // FIX: Reset state
             iceCandidatesQueue = [];
             callStartTime = null; 
             callId = null;
@@ -1348,8 +1339,8 @@
                 const oldVideoTrack = myStream.getVideoTracks()[0];
                 if(oldVideoTrack) oldVideoTrack.stop();
                 
-                myStream.removeTrack(myStream.getVideoTracks()[0]); // Remove old track object
-                myStream.addTrack(newVideoTrack); // Add new track object
+                myStream.removeTrack(myStream.getVideoTracks()[0]);
+                myStream.addTrack(newVideoTrack);
                 document.getElementById('localVid').srcObject = myStream;
                 
                 showToast("Camera Switched", "info");
