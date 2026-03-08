@@ -15,20 +15,23 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f0f2f5;
-            min-height: 100vh; 
             width: 100%;
             display: flex;
             justify-content: center;
-            overflow: hidden;
         }
 
         .container {
             max-width: 1200px;
             width: 100%;
-            min-height: 100vh;
+            height: 100%; /* Fill screen */
             background: white;
             display: flex;
             flex-direction: column;
@@ -37,7 +40,7 @@
 
         @media (min-width: 769px) {
             body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; height: 100vh; align-items: center; }
-            .container { height: 100%; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
+            .container { height: calc(100% - 40px); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
         }
 
         /* Toast Notification System */
@@ -633,8 +636,32 @@
             appSec.style.display = 'flex';
             document.getElementById('myName').innerText = me.name;
             document.getElementById('myAvatar').innerText = me.name.charAt(0).toUpperCase();
+            
+            // FIX: Setup keyboard and resize listeners
+            setupInputListeners();
+            
             loadProfile();
             loadTab('friends');
+        }
+        
+        // FIX: Function to handle keyboard and scroll behavior
+        function setupInputListeners() {
+            const msgInput = document.getElementById('msgInput');
+            const msgBox = document.getElementById('msgBox');
+            
+            // Scroll to bottom when input is focused (keyboard opens)
+            msgInput.addEventListener('focus', () => {
+                setTimeout(() => {
+                    msgBox.scrollTop = msgBox.scrollHeight;
+                }, 300); // Wait for keyboard animation
+            });
+
+            // Handle window resize (keyboard open/close)
+            window.addEventListener('resize', () => {
+                if (document.activeElement === msgInput) {
+                    msgBox.scrollTop = msgBox.scrollHeight;
+                }
+            });
         }
 
         async function loadProfile() {
@@ -926,12 +953,17 @@
             }
             div.innerHTML = `${content}<div class="message-time">${time} ${statusHtml} ${sent ? `<span class="msg-actions"><button class="del-btn" onclick="deleteMsg('${id}')">🗑️</button></span>` : ''}</div>`;
             box.appendChild(div);
+            
+            // FIX: Scroll to bottom smoothly when new message arrives
             box.scrollTop = box.scrollHeight;
         }
 
         async function sendMessage() {
             const text = document.getElementById('msgInput').value.trim(); 
             if(!text || !chatId) return;
+            
+            const inputEl = document.getElementById('msgInput');
+            
             try {
                 clearTimeout(typingTimer); 
                 await db.ref('typing/' + chatId + '/' + me.uid).remove();
@@ -940,7 +972,11 @@
                     timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' 
                 });
                 playSound('sent');
-                document.getElementById('msgInput').value = '';
+                inputEl.value = '';
+                
+                // FIX: Blur input to hide keyboard
+                inputEl.blur(); 
+                
             } catch(e) { showToast('Error sending message', 'error'); }
         }
 
@@ -991,7 +1027,6 @@
 
         /* --- VIDEO CALL LOGIC --- */
         
-        // FIX: Added missing setCallUI function
         function setCallUI(status, extraText = '') {
             const overlay = document.getElementById('callStatusOverlay');
             const title = document.getElementById('overlayTitle');
