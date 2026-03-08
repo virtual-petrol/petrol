@@ -17,7 +17,7 @@
         
         html, body {
             height: 100%;
-            overflow: hidden; /* Prevent body scroll */
+            overflow: hidden;
         }
 
         body {
@@ -31,7 +31,7 @@
         .container {
             max-width: 1200px;
             width: 100%;
-            height: 100%; /* Fill screen */
+            height: 100%;
             background: white;
             display: flex;
             flex-direction: column;
@@ -221,7 +221,7 @@
                 </div>
 
                 <div id="verifyContainer" style="display:none;">
-                    <h3 style="margin-bottom: 15px; color: #333;">Verify Email</h3>
+                    <h3 style="margin-bottom: 15px; color: #333;">Please verify your email. It may have gone to your spam folder as well.</h3>
                     <p style="font-size: 13px; color: #666; margin-bottom: 10px;">A verification link has been sent to:</p>
                     <p style="font-weight: bold; color: #667eea; margin-bottom: 20px;" id="verifyEmailLabel"></p>
                     <button class="auth-btn" onclick="resendVerification()">Resend Email</button>
@@ -404,7 +404,7 @@
         let answerListener = null;
         let msgListeners = {}; 
         
-        // FIX: Queue for ICE candidates
+        // Queue for ICE candidates
         let iceCandidatesQueue = [];
 
         async function initApp() {
@@ -637,14 +637,12 @@
             document.getElementById('myName').innerText = me.name;
             document.getElementById('myAvatar').innerText = me.name.charAt(0).toUpperCase();
             
-            // FIX: Setup keyboard and resize listeners
             setupInputListeners();
             
             loadProfile();
             loadTab('friends');
         }
         
-        // FIX: Function to handle keyboard and scroll behavior
         function setupInputListeners() {
             const msgInput = document.getElementById('msgInput');
             const msgBox = document.getElementById('msgBox');
@@ -653,7 +651,7 @@
             msgInput.addEventListener('focus', () => {
                 setTimeout(() => {
                     msgBox.scrollTop = msgBox.scrollHeight;
-                }, 300); // Wait for keyboard animation
+                }, 300); 
             });
 
             // Handle window resize (keyboard open/close)
@@ -953,8 +951,6 @@
             }
             div.innerHTML = `${content}<div class="message-time">${time} ${statusHtml} ${sent ? `<span class="msg-actions"><button class="del-btn" onclick="deleteMsg('${id}')">🗑️</button></span>` : ''}</div>`;
             box.appendChild(div);
-            
-            // FIX: Scroll to bottom smoothly when new message arrives
             box.scrollTop = box.scrollHeight;
         }
 
@@ -973,9 +969,7 @@
                 });
                 playSound('sent');
                 inputEl.value = '';
-                
-                // FIX: Blur input to hide keyboard
-                inputEl.blur(); 
+                inputEl.focus(); // Keep focus so keyboard stays open
                 
             } catch(e) { showToast('Error sending message', 'error'); }
         }
