@@ -46,7 +46,7 @@
         .btn-primary { width: 100%; padding: 15px; background: var(--primary-color); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 10px rgba(0,86,179,0.3); }
         .btn-primary:active { transform: scale(0.98); }
 
-        /* --- DASHBOARD LAYOUT (Responsive Grid) --- */
+        /* --- DASHBOARD LAYOUT --- */
         #dashboard-screen { max-width: 1400px; margin: 0 auto; width: 100%; padding: 15px; display: grid; gap: 25px; }
         
         /* Desktop: Side by Side */
@@ -71,18 +71,8 @@
         .section-title { margin-bottom: 20px; font-size: 1.1rem; border-left: 4px solid var(--secondary-color); padding-left: 10px; color: var(--primary-color); }
         
         .items-container { margin-bottom: 20px; flex: 1; }
-        .item-row { 
-            display: flex; 
-            gap: 10px; 
-            margin-bottom: 15px; 
-            align-items: center; 
-            background: #fafafa; 
-            padding: 10px; 
-            border-radius: 8px; 
-            border: 1px solid #eee;
-        }
+        .item-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; background: #fafafa; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
         
-        /* Mobile Item Layout: Stacked */
         @media (max-width: 600px) {
             .item-row { flex-direction: column; align-items: stretch; gap: 8px; padding: 15px; }
             .item-row > * { width: 100% !important; }
@@ -95,13 +85,11 @@
         
         .btn-icon { background: #ffebee; color: var(--danger-color); border: none; width: 40px; height: 40px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; transition: background 0.2s; }
         .btn-icon:active { background: #ffcdd2; }
-        
         .btn-add { width: 100%; padding: 12px; background: #e3f2fd; border: 2px dashed var(--secondary-color); color: var(--secondary-color); border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: background 0.2s; }
         .btn-add:active { background: #bbdefb; }
 
         .actions { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
         .action-row { display: flex; gap: 10px; }
-        
         .btn-action { flex: 1; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; color: white; }
         .btn-secondary { background: #6c757d; }
         .btn-print { background: var(--accent-color); box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3); }
@@ -110,31 +98,12 @@
 
         /* --- PREVIEW SECTION --- */
         .preview-section { background: #525659; padding: 20px; border-radius: var(--radius); overflow: hidden; display: flex; justify-content: center; align-items: flex-start; position: relative; }
-        
-        /* Handle horizontal scroll on mobile for A4 invoice */
-        .invoice-scroll-wrapper {
-            width: 100%;
-            overflow-x: auto; 
-            -webkit-overflow-scrolling: touch; /* Smooth scroll iOS */
-            display: flex;
-            justify-content: center; /* Center on desktop */
-        }
-        /* On mobile, align left for easier reading */
-        @media (max-width: 600px) {
-            .invoice-scroll-wrapper { justify-content: flex-start; }
-        }
+        .invoice-scroll-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; display: flex; justify-content: center; }
+        @media (max-width: 600px) { .invoice-scroll-wrapper { justify-content: flex-start; } }
 
-        .invoice-paper { 
-            background: white; 
-            width: 210mm; 
-            min-height: 297mm; 
-            padding: 40px; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.3); 
-            flex-shrink: 0; /* Prevent shrinking */
-            transform-origin: top left;
-        }
+        .invoice-paper { background: white; width: 210mm; min-height: 297mm; padding: 40px; box-shadow: 0 0 20px rgba(0,0,0,0.3); flex-shrink: 0; transform-origin: top left; }
 
-        /* Invoice Inner Styling */
+        /* Invoice Styling */
         .inv-header { display: flex; justify-content: space-between; margin-bottom: 40px; border-bottom: 2px solid var(--primary-color); padding-bottom: 20px; }
         .inv-logo { width: 60px; height: 60px; background: var(--primary-color); border-radius: 8px; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 24px; flex-shrink: 0; }
         .inv-title { text-align: right; }
@@ -144,24 +113,20 @@
         .inv-to, .inv-from { flex: 1; min-width: 0; }
         .detail-label { font-weight: bold; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 5px; display: block; color: var(--text-light); }
         .detail-value { font-size: 1rem; margin-bottom: 5px; word-break: break-word; }
-
         .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 0.95rem; }
         .inv-table th { background: var(--bg-color); text-align: left; padding: 12px; border-bottom: 2px solid var(--border-color); color: var(--primary-color); font-weight: 600; }
         .inv-table td { padding: 12px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
         .col-right { text-align: right; }
         .col-center { text-align: center; }
-
         .inv-totals { width: 45%; margin-left: auto; }
         .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 0.95rem; }
         .grand-total { border-bottom: none; font-weight: bold; font-size: 1.4rem; color: var(--primary-color); margin-top: 10px; border-top: 2px solid var(--primary-color); padding-top: 15px; }
-
         .inv-footer { margin-top: 40px; display: flex; align-items: flex-start; justify-content: space-between; border-top: 1px dashed var(--border-color); padding-top: 20px; gap: 20px; }
         .qr-area { text-align: center; flex-shrink: 0; }
         .qr-area canvas { border: 1px solid #ddd; padding: 5px; border-radius: 4px; }
         .qr-text { font-size: 0.8rem; color: var(--text-light); margin-top: 5px; }
         .payment-status { color: var(--accent-color); font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.9rem; margin-top: 5px; }
 
-        /* --- PRINT MEDIA QUERY --- */
         @media print {
             body { background: white; display: block; }
             #login-screen, .editor-section, #toast-container, header, .actions, .preview-section { display: none !important; }
@@ -180,11 +145,11 @@
     <section id="login-screen">
         <div class="login-card fade-in">
             <div class="app-logo">NP</div>
-            <h2 class="login-title">Nepal Pay</h2>
+            <h2 class="login-title">Nepal Pay Business</h2>
             <form id="login-form">
                 <div class="form-group">
-                    <label for="username">Merchant ID</label>
-                    <input type="text" id="username" class="form-control" placeholder="Enter ID" value="9841000000">
+                    <label for="username">Merchant Name / ID</label>
+                    <input type="text" id="username" class="form-control" placeholder="Enter your Shop Name" value="Ram Electronics">
                 </div>
                 <div class="form-group">
                     <label for="password">PIN</label>
@@ -213,7 +178,7 @@
             
             <div class="form-group">
                 <label>Client Name</label>
-                <input type="text" id="client-name" class="form-control" placeholder="e.g. Ram Bahadur" oninput="updatePreview()">
+                <input type="text" id="client-name" class="form-control" placeholder="e.g. Shyam Kumar" oninput="updatePreview()">
             </div>
             
             <div class="form-group">
@@ -231,7 +196,7 @@
                 <input type="date" id="invoice-date" class="form-control" oninput="updatePreview()">
             </div>
 
-            <!-- NEW: Merchant PAN Field -->
+            <!-- Merchant PAN Field -->
             <div class="form-group" style="margin-top: 10px; border-top: 1px dashed #ddd; padding-top: 10px;">
                 <label>Merchant PAN</label>
                 <input type="text" id="merchant-pan" class="form-control" value="123456789" oninput="updatePreview()">
@@ -277,8 +242,7 @@
                     <div class="inv-details">
                         <div class="inv-from">
                             <span class="detail-label">Bill From:</span>
-                            <div class="detail-value" style="font-weight:bold;">Nepal Pay Merchant</div>
-                            <!-- NEW: PAN Display Here -->
+                            <div class="detail-value" style="font-weight:bold;" id="prev-merchant-name">Nepal Pay Merchant</div>
                             <div class="detail-value" id="prev-merchant-pan">PAN: 123456789</div>
                             <div class="detail-value" id="user-merchant-id">ID: 9841000000</div>
                             <div class="detail-value">Kathmandu, Nepal</div>
@@ -324,6 +288,30 @@
         </div>
     </section>
 
+    <!-- FIREBASE CONFIGURATION (Module Script) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtPQ_HcTZtqlPuQ11awTUOIiPjvpMNWlU",
+            authDomain: "khaji-23a99.firebaseapp.com",
+            databaseURL: "https://khaji-23a99-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "khaji-23a99",
+            storageBucket: "khaji-23a99.firebasestorage.app",
+            messagingSenderId: "84794766200",
+            appId: "1:84794766200:web:207a50412961d45275ce8d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const functions = getFunctions(app);
+
+        window.fbFunctions = functions;
+        window.fbHttpsCallable = httpsCallable;
+        console.log("Firebase Initialized");
+    </script>
+
+    <!-- MAIN APPLICATION LOGIC -->
     <script>
         const state = { items: [], invoiceCount: 1001, merchantId: '9841000000' };
 
@@ -337,13 +325,15 @@
         // --- LOGIN ---
         document.getElementById('login-form').addEventListener('submit', function(e) {
             e.preventDefault();
+            const merchantName = document.getElementById('username').value;
             const btn = document.getElementById('login-btn');
             btn.innerHTML = 'Authenticating...';
             btn.disabled = true;
             setTimeout(() => {
+                document.getElementById('prev-merchant-name').innerText = merchantName;
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('dashboard-screen').classList.remove('hidden');
-                showToast('Welcome, Merchant!', 'success');
+                showToast('Welcome, ' + merchantName + '!', 'success');
                 btn.innerHTML = 'Login';
                 btn.disabled = false;
             }, 800);
@@ -393,7 +383,7 @@
                 document.getElementById('client-email').value = '';
                 document.getElementById('client-phone').value = '';
                 document.getElementById('invoice-note').value = '';
-                document.getElementById('merchant-pan').value = '123456789'; // Reset PAN
+                document.getElementById('merchant-pan').value = '123456789'; 
                 renderItems();
                 updatePreview();
             }
@@ -406,8 +396,6 @@
             document.getElementById('prev-client-name').innerText = document.getElementById('client-name').value || 'Client Name';
             document.getElementById('prev-client-phone').innerText = 'Phone: ' + (document.getElementById('client-phone').value || '--');
             document.getElementById('prev-note').innerText = document.getElementById('invoice-note').value;
-            
-            // NEW: Update PAN Preview
             const pan = document.getElementById('merchant-pan').value;
             document.getElementById('prev-merchant-pan').innerText = 'PAN: ' + (pan ? pan : '---');
 
@@ -464,12 +452,12 @@
         }
         function updateQR(amount) { drawQRCode(`NPRAY|${state.merchantId}|${amount}`); }
 
-        // --- ACTIONS ---
         function printInvoice() {
             if(!document.getElementById('client-name').value) { showToast('Enter Client Name', 'error'); return; }
             window.print();
         }
 
+        // --- IMPROVED EMAIL FUNCTION WITH ERROR CHECKING ---
         async function sendEmail() {
             const email = document.getElementById('client-email').value;
             const clientName = document.getElementById('client-name').value;
@@ -477,25 +465,53 @@
             if (!clientName) { showToast('Enter Client Name', 'error'); return; }
             if (!email || !email.includes('@')) { showToast('Enter valid Email', 'error'); return; }
 
+            const invoiceHTML = document.getElementById('invoice-paper').innerHTML;
+
             const btn = document.getElementById('send-email-btn');
             btn.disabled = true;
-            btn.innerHTML = 'Sending...';
+            btn.innerHTML = 'Connecting to Server...';
 
-            // SIMULATION for UI demo
-            setTimeout(() => {
-                console.log("Mock Email Sent to:", email);
-                showToast(`Invoice sent to ${email}`, 'success');
+            try {
+                // 1. Check if Firebase is loaded
+                if (!window.fbHttpsCallable) {
+                    throw new Error("Firebase not loaded. Check your internet connection.");
+                }
+
+                // 2. Call the function
+                const sendInvoiceFunction = window.fbHttpsCallable(window.fbFunctions, 'sendInvoice');
+                
+                console.log("Sending request to Firebase...");
+                const result = await sendInvoiceFunction({
+                    to: email,
+                    subject: `Invoice #INV-${state.invoiceCount} from Nepal Pay`,
+                    html: invoiceHTML
+                });
+
+                console.log("Response:", result);
+                showToast(`Success! Invoice sent to ${email}`, 'success');
+
+            } catch (error) {
+                console.error("Full Error Object:", error);
+                
+                // 3. Parse the specific Firebase error
+                let errorMessage = "Unknown Error";
+                
+                if (error.code === 'functions/not-found') {
+                    errorMessage = "Error: The 'sendInvoice' function is not deployed on Firebase.";
+                } else if (error.code === 'functions/permission-denied' || error.code === 'unauthenticated') {
+                    errorMessage = "Error: Permission denied. Did you deploy the backend code?";
+                } else if (error.code === 'functions/internal') {
+                    errorMessage = "Backend Error: Check your Gmail password in the backend config.";
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
+                showToast(errorMessage, 'error');
+                alert("Debug Info: " + errorMessage); // Alert to make sure user sees it
+            } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span>✉</span> Send via Email';
-            }, 1500);
-
-            /* REAL FIREBASE CODE:
-            const invoiceHTML = document.getElementById('invoice-paper').innerHTML;
-            const response = await fetch('YOUR_FIREBASE_FUNCTION_URL', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ to: email, subject: 'Invoice', html: invoiceHTML })
-            });
-            */
+            }
         }
 
         function showToast(msg, type) {
