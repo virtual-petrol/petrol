@@ -101,6 +101,15 @@
         .accept-sm { background: #4caf50; color: white; }
         .reject-sm { background: #ff4757; color: white; }
         .add-sm { background: #667eea; color: white; }
+        
+        /* Group specific styles */
+        .group-item { padding: 12px 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        .group-avatar { background: #ff9800; }
+        .group-badge { background: #ff9800; color: white; border-radius: 10px; padding: 2px 8px; font-size: 10px; margin-left: 5px; }
+        .member-count { font-size: 10px; color: #888; margin-top: 2px; }
+        .create-group-btn { background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-size: 12px; margin: 10px; cursor: pointer; }
+        .member-item { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0; }
+        .member-checkbox { margin-right: 10px; }
 
         /* Main Chat */
         .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; background: white; min-width: 0; }
@@ -126,6 +135,8 @@
         .message.sent .message-time { color: rgba(255,255,255,0.8); }
         .status-tick { font-size: 10px; }
         .status-tick.seen { color: #4fc3f7; }
+        .sender-name { font-size: 10px; font-weight: bold; margin-bottom: 2px; color: #666; }
+        .message.sent .sender-name { display: none; }
         .message-img { max-width: 100%; max-height: 200px; border-radius: 10px; margin-bottom: 5px; cursor: pointer; display: block; }
         .msg-actions { position: absolute; top: -5px; right: -5px; background: white; border-radius: 10px; padding: 2px; display: none; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .message:hover .msg-actions { display: block; }
@@ -144,6 +155,7 @@
         .modal-close { position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 20px; cursor: pointer; }
         .modal-input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; }
         .modal-save-btn { width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
+        .member-list { max-height: 300px; overflow-y: auto; margin: 15px 0; }
         
         /* Video Call UI */
         .video-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; z-index: 2000; display: none; flex-direction: column; }
@@ -247,8 +259,9 @@
                     </div>
                     
                     <div class="tabs">
-                        <div class="tab active" onclick="loadTab('friends')" id="tabFriends">Friends</div>
-                        <div class="tab" onclick="loadTab('requests')" id="tabRequests">Requests <span class="friend-request-badge" id="reqBadge" style="display:none;">0</span></div>
+                        <div class="tab active" onclick="loadTab('chats')" id="tabChats">Chats</div>
+                        <div class="tab" onclick="loadTab('friends')" id="tabFriends">Friends</div>
+                        <div class="tab" onclick="loadTab('groups')" id="tabGroups">Groups</div>
                         <div class="tab" onclick="loadTab('search')" id="tabSearch">Search</div>
                     </div>
                     <div class="tab-content" id="sidebarContent"></div>
@@ -257,10 +270,10 @@
                 <div class="main-content">
                     <div class="chat-header">
                         <button class="back-btn" onclick="goBack()">⬅️</button>
-                        <div class="chat-user-info" onclick="openModal('friendModal')">
+                        <div class="chat-user-info" onclick="openChatInfo()">
                             <div class="avatar" id="chatAvatar">?</div>
                             <div style="min-width:0">
-                                <h3 id="chatName" style="font-size:15px;">Select Friend</h3>
+                                <h3 id="chatName" style="font-size:15px;">Select Chat</h3>
                                 <div class="typing-indicator" id="typingDiv">typing...</div>
                             </div>
                         </div>
@@ -274,7 +287,7 @@
                         </div>
                     </div>
                     <div class="chat-messages" id="msgBox">
-                        <div style="text-align:center; color:#999; margin-top:50px;">Select a friend to start</div>
+                        <div style="text-align:center; color:#999; margin-top:50px;">Select a chat to start</div>
                     </div>
                     <div class="chat-input-area">
                         <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
@@ -313,6 +326,26 @@
             </div>
             <p style="font-size:13px; color:#666;"><b>Bio:</b> <span id="friendDetailBio">-</span></p>
             <p style="font-size:13px; color:#666; margin-top:5px;"><b>Last Seen:</b> <span id="friendDetailLastSeen">-</span></p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="groupModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal('groupModal')">&times;</button>
+            <h2 style="margin-bottom:15px;">Create Group</h2>
+            <input type="text" class="modal-input" id="groupName" placeholder="Group Name">
+            <div class="member-list" id="memberList"></div>
+            <button class="modal-save-btn" onclick="createGroup()">Create Group</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="groupInfoModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal('groupInfoModal')">&times;</button>
+            <h2 id="groupInfoName"></h2>
+            <p id="groupInfoMembers"></p>
+            <hr style="margin: 15px 0;">
+            <button class="modal-save-btn" style="background: #ff4757;" onclick="leaveGroup()">Leave Group</button>
         </div>
     </div>
 
@@ -374,12 +407,12 @@
 
         let auth, db, storage;
         let me = null;
-        let friend = null;
-        let chatId = null;
-        let currentTab = 'friends';
+        let currentChat = { type: null, id: null, data: null };
+        let currentTab = 'chats';
         let deleteTarget = null;
         let typingTimer = null;
         let unreadCounts = {}; 
+        let groupUnreadCounts = {};
         let isInitialLoad = true;
         
         const appStartTime = Date.now(); 
@@ -403,6 +436,7 @@
         let candidateListenerCallee = null;
         let answerListener = null;
         let msgListeners = {}; 
+        let groupMsgListeners = {};
         
         // Queue for ICE candidates
         let iceCandidatesQueue = [];
@@ -497,7 +531,6 @@
                     if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
                     
                     showApp();
-                    listenRequests();
                     listenCalls();
                 } catch (error) {
                     console.error("Auth error:", error);
@@ -508,7 +541,7 @@
             } else {
                 document.getElementById('authSection').style.display = 'flex';
                 document.getElementById('appSection').style.display = 'none';
-                me = null; friend = null; chatId = null;
+                me = null; currentChat = { type: null, id: null, data: null };
                 backToLogin();
             }
         }
@@ -640,21 +673,19 @@
             setupInputListeners();
             
             loadProfile();
-            loadTab('friends');
+            loadTab('chats');
         }
         
         function setupInputListeners() {
             const msgInput = document.getElementById('msgInput');
             const msgBox = document.getElementById('msgBox');
             
-            // Scroll to bottom when input is focused (keyboard opens)
             msgInput.addEventListener('focus', () => {
                 setTimeout(() => {
                     msgBox.scrollTop = msgBox.scrollHeight;
                 }, 300); 
             });
 
-            // Handle window resize (keyboard open/close)
             window.addEventListener('resize', () => {
                 if (document.activeElement === msgInput) {
                     msgBox.scrollTop = msgBox.scrollHeight;
@@ -703,47 +734,112 @@
             const tabId = 'tab' + t.charAt(0).toUpperCase() + t.slice(1);
             const tabEl = document.getElementById(tabId);
             if(tabEl) tabEl.classList.add('active');
-            if(t === 'friends') loadFriends();
-            else if(t === 'requests') loadRequests();
+            
+            if(t === 'chats') loadChats();
+            else if(t === 'friends') loadFriends();
+            else if(t === 'groups') loadGroups();
             else loadSearch();
         }
 
-        function setupGlobalListeners(friendIds) {
-            friendIds.forEach(uid => {
-                if (msgListeners[uid]) return;
-                const cid = [me.uid, uid].sort().join('_');
-                const ref = db.ref('messages/' + cid).orderByChild('timestamp').limitToLast(1);
-                msgListeners[uid] = ref;
-                ref.on('child_added', snap => {
-                    const msg = snap.val(); const msgId = snap.key;
-                    if(msg && msg.sender !== me.uid && chatId !== cid) {
-                        if (!unreadCounts[uid]) unreadCounts[uid] = 0;
-                        unreadCounts[uid]++;
-                        const isRecentMessage = msg.timestamp && msg.timestamp >= (appStartTime - 2000);
-                        if (isRecentMessage && !notifiedMessages.has(msgId)) {
-                            notifiedMessages.add(msgId);
-                            playSound('message');
-                        }
-                        updateSidebarUserUI(uid);
-                    }
-                });
-            });
+        async function loadChats() {
+            try {
+                // Load recent chats (both private and group)
+                const privateChats = await loadRecentPrivateChats();
+                const groups = await loadUserGroups();
+                
+                const allChats = [...privateChats, ...groups].sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
+                
+                renderChatList(allChats);
+            } catch(e) {
+                console.error("Error loading chats:", e);
+            }
         }
 
-        function updateSidebarUserUI(uid) {
-            const userItem = document.getElementById(`user-item-${uid}`);
-            if (userItem) {
-                const count = unreadCounts[uid] || 0;
-                const badge = userItem.querySelector('.unread-badge');
-                if (count > 0) userItem.classList.add('has-unread');
-                else userItem.classList.remove('has-unread');
-                if (badge) {
-                    badge.innerText = count;
-                    badge.style.display = count > 0 ? 'block' : 'none';
-                } else if (count > 0 && currentTab === 'friends') {
-                    loadFriends();
+        async function loadRecentPrivateChats() {
+            const chats = [];
+            const snap = await db.ref('friendships').once('value');
+            const data = snap.val() || {};
+            
+            for(let key in data) {
+                if(data[key] && data[key][me.uid] && data[key][me.uid].status === 'accepted') {
+                    const otherId = Object.keys(data[key]).find(x => x !== me.uid);
+                    if(otherId) {
+                        const userSnap = await db.ref('users/' + otherId).once('value');
+                        const user = userSnap.val();
+                        if(user) {
+                            const chatId = [me.uid, otherId].sort().join('_');
+                            const lastMsgSnap = await db.ref('messages/' + chatId).orderByKey().limitToLast(1).once('value');
+                            const lastMsg = lastMsgSnap.val();
+                            const lastMsgTime = lastMsg ? Object.values(lastMsg)[0].timestamp : 0;
+                            
+                            chats.push({
+                                type: 'private',
+                                id: otherId,
+                                chatId: chatId,
+                                name: user.name,
+                                avatar: user.name.charAt(0),
+                                lastMessageTime: lastMsgTime,
+                                unread: unreadCounts[otherId] || 0
+                            });
+                        }
+                    }
                 }
             }
+            return chats;
+        }
+
+        async function loadUserGroups() {
+            const groups = [];
+            const snap = await db.ref('userGroups/' + me.uid).once('value');
+            const groupIds = snap.val() || {};
+            
+            for(let groupId in groupIds) {
+                if(groupIds[groupId]) {
+                    const groupSnap = await db.ref('groups/' + groupId).once('value');
+                    const group = groupSnap.val();
+                    if(group) {
+                        const lastMsgSnap = await db.ref('groupMessages/' + groupId).orderByKey().limitToLast(1).once('value');
+                        const lastMsg = lastMsgSnap.val();
+                        const lastMsgTime = lastMsg ? Object.values(lastMsg)[0].timestamp : 0;
+                        
+                        groups.push({
+                            type: 'group',
+                            id: groupId,
+                            name: group.name,
+                            avatar: 'G',
+                            memberCount: group.members ? Object.keys(group.members).length : 0,
+                            lastMessageTime: lastMsgTime,
+                            unread: groupUnreadCounts[groupId] || 0
+                        });
+                    }
+                }
+            }
+            return groups;
+        }
+
+        function renderChatList(chats) {
+            const cont = document.getElementById('sidebarContent');
+            if(chats.length === 0) { 
+                cont.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No chats yet</div>`; 
+                return; 
+            }
+            
+            let html = '';
+            chats.forEach(chat => {
+                const unreadClass = chat.unread > 0 ? 'has-unread' : '';
+                const unreadBadge = chat.unread > 0 ? `<div class="unread-badge">${chat.unread}</div>` : '';
+                const typeIcon = chat.type === 'group' ? '👥' : '';
+                
+                html += `<div class="user-item ${unreadClass}" onclick="openChat('${chat.type}', '${chat.id}')">
+                    <div class="avatar ${chat.type === 'group' ? 'group-avatar' : ''}">${chat.avatar}</div>
+                    <div>
+                        <h4>${typeIcon} ${chat.name}</h4>
+                        ${chat.type === 'group' ? `<p class="member-count">${chat.memberCount} members</p>` : ''}
+                    </div>
+                    ${unreadBadge}
+                </div>`;
+            });
+            cont.innerHTML = html;
         }
 
         async function loadFriends() {
@@ -758,22 +854,82 @@
                         if (otherId) ids.push(otherId);
                     }
                 });
-                setupGlobalListeners(ids);
-                renderUsers(ids, 'friends');
+                
+                const friends = [];
+                for(let uid of ids) {
+                    const uSnap = await db.ref('users/' + uid).once('value');
+                    const u = uSnap.val();
+                    if(u) {
+                        friends.push({ uid, ...u });
+                    }
+                }
+                
+                renderFriendsList(friends);
             } catch(e) { console.error("Error loading friends:", e); }
         }
 
-        async function loadRequests() {
+        function renderFriendsList(friends) {
+            const cont = document.getElementById('sidebarContent');
+            if(friends.length === 0) { 
+                cont.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No friends yet</div>`; 
+                return; 
+            }
+            
+            let html = '';
+            friends.forEach(u => {
+                const status = u.online ? '' : 'offline';
+                html += `<div class="user-item" onclick="openChat('private', '${u.uid}')">
+                    <div class="avatar">${(u.name||'U').charAt(0)}</div>
+                    <div>
+                        <h4>${u.name}</h4>
+                        <p style="font-size:11px;color:#888">${u.status || ''}</p>
+                    </div>
+                    <div class="user-status ${status}"></div>
+                </div>`;
+            });
+            cont.innerHTML = html;
+        }
+
+        async function loadGroups() {
             try {
-                const snap = await db.ref('friendRequests').orderByChild('to').equalTo(me.uid).once('value');
-                const data = snap.val() || {};
-                const ids = []; const reqData = {};
-                Object.keys(data).forEach(k => { if(data[k].status === 'pending') { ids.push(data[k].from); reqData[data[k].from] = k; } });
-                const badge = document.getElementById('reqBadge');
-                badge.style.display = ids.length > 0 ? 'inline' : 'none';
-                badge.innerText = ids.length;
-                renderUsers(ids, 'requests', reqData);
-            } catch(e) { console.error("Error loading requests:", e); }
+                const snap = await db.ref('userGroups/' + me.uid).once('value');
+                const groupIds = snap.val() || {};
+                const groups = [];
+                
+                for(let groupId in groupIds) {
+                    if(groupIds[groupId]) {
+                        const groupSnap = await db.ref('groups/' + groupId).once('value');
+                        const group = groupSnap.val();
+                        if(group) {
+                            groups.push({ id: groupId, ...group });
+                        }
+                    }
+                }
+                
+                renderGroupsList(groups);
+            } catch(e) { console.error("Error loading groups:", e); }
+        }
+
+        function renderGroupsList(groups) {
+            const cont = document.getElementById('sidebarContent');
+            
+            let html = `<button class="create-group-btn" onclick="showCreateGroupModal()">+ Create New Group</button>`;
+            
+            if(groups.length === 0) { 
+                html += `<div style="padding:20px; text-align:center; color:#999;">No groups yet</div>`; 
+            } else {
+                groups.forEach(group => {
+                    const memberCount = group.members ? Object.keys(group.members).length : 0;
+                    html += `<div class="group-item" onclick="openChat('group', '${group.id}')">
+                        <div class="avatar group-avatar">G</div>
+                        <div>
+                            <h4>${group.name}</h4>
+                            <p class="member-count">${memberCount} members</p>
+                        </div>
+                    </div>`;
+                });
+            }
+            cont.innerHTML = html;
         }
 
         async function loadSearch() {
@@ -799,42 +955,6 @@
             } catch(e) { console.error("Error loading search:", e); }
         }
 
-        async function renderUsers(ids, type, reqData = {}) {
-            const cont = document.getElementById('sidebarContent');
-            if(ids.length === 0) { cont.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No ${type}</div>`; return; }
-            let html = '';
-            for(let uid of ids) {
-                try {
-                    const uSnap = await db.ref('users/' + uid).once('value');
-                    const u = uSnap.val(); if(!u) continue;
-                    const status = u.online ? '' : 'offline';
-                    const unread = unreadCounts[uid] || 0;
-                    const unreadClass = unread > 0 ? 'has-unread' : '';
-                    const unreadBadgeHtml = unread > 0 ? `<div class="unread-badge">${unread}</div>` : '';
-                    
-                    if(type === 'friends') {
-                        html += `<div class="user-item ${unreadClass}" id="user-item-${uid}" onclick="openChat('${uid}')">
-                            <div class="avatar">${(u.name||'U').charAt(0)}</div>
-                            <div>
-                                <h4>${u.name}</h4>
-                                <p style="font-size:11px;color:#888">${u.status || ''}</p>
-                            </div>
-                            <div class="user-status ${status}"></div>
-                            ${unreadBadgeHtml}
-                        </div>`;
-                    } else if(type === 'requests') {
-                        html += `<div class="user-item">
-                            <div class="avatar">${(u.name||'U').charAt(0)}</div>
-                            <div><h4>${u.name}</h4></div>
-                            <button class="action-btn-sm accept-sm" onclick="acceptReq('${uid}', '${reqData[uid]}')">✓</button>
-                            <button class="action-btn-sm reject-sm" onclick="rejectReq('${reqData[uid]}')">✗</button>
-                        </div>`;
-                    }
-                } catch(e) { console.error("Error rendering user:", e); }
-            }
-            cont.innerHTML = html;
-        }
-
         function renderSearch(list) {
             const cont = document.getElementById('sidebarContent');
             if(list.length === 0) { cont.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No users found</div>`; return; }
@@ -849,70 +969,159 @@
             cont.innerHTML = html;
         }
 
-        async function addFriend(toUid) { 
+        async function showCreateGroupModal() {
             try {
-                await db.ref('friendRequests').push({ from: me.uid, to: toUid, status: 'pending', timestamp: firebase.database.ServerValue.TIMESTAMP }); 
-                showToast('Request sent!', 'success'); loadSearch(); 
-            } catch(e) { showToast('Error sending request', 'error'); }
-        }
-        
-        async function acceptReq(uid, key) { 
-            try {
-                const fid = [me.uid, uid].sort().join('_'); 
-                await db.ref('friendRequests/' + key).remove(); 
-                await db.ref('friendships/' + fid).set({ [me.uid]: { status: 'accepted' }, [uid]: { status: 'accepted' } }); 
-                showToast('Friend added!', 'success'); loadRequests(); 
-            } catch(e) { showToast('Error accepting request', 'error'); }
-        }
-        
-        async function rejectReq(key) { 
-            try { await db.ref('friendRequests/' + key).remove(); loadRequests(); } catch(e) { showToast('Error rejecting request', 'error'); }
+                const snap = await db.ref('friendships').once('value');
+                const data = snap.val() || {};
+                const friends = [];
+                
+                for(let key in data) {
+                    if(data[key] && data[key][me.uid] && data[key][me.uid].status === 'accepted') {
+                        const otherId = Object.keys(data[key]).find(x => x !== me.uid);
+                        if(otherId) {
+                            const uSnap = await db.ref('users/' + otherId).once('value');
+                            const u = uSnap.val();
+                            if(u) {
+                                friends.push({ uid: otherId, name: u.name });
+                            }
+                        }
+                    }
+                }
+                
+                let html = '';
+                friends.forEach(friend => {
+                    html += `<div class="member-item">
+                        <input type="checkbox" class="member-checkbox" value="${friend.uid}" id="member-${friend.uid}">
+                        <label for="member-${friend.uid}">${friend.name}</label>
+                    </div>`;
+                });
+                
+                document.getElementById('memberList').innerHTML = html;
+                openModal('groupModal');
+            } catch(e) {
+                console.error("Error loading friends for group:", e);
+                showToast("Error loading friends", "error");
+            }
         }
 
-        function listenRequests() {
-            db.ref('friendRequests').orderByChild('to').equalTo(me.uid).on('value', snap => {
-                const data = snap.val() || {}; 
-                let count = 0;
-                Object.keys(data).forEach(k => { if(data[k] && data[k].status === 'pending') count++; });
-                const badge = document.getElementById('reqBadge'); 
-                badge.style.display = count > 0 ? 'inline' : 'none'; 
-                badge.innerText = count;
-            });
+        async function createGroup() {
+            const groupName = document.getElementById('groupName').value.trim();
+            if(!groupName) { showToast("Enter group name", 'error'); return; }
+            
+            const checkboxes = document.querySelectorAll('#memberList .member-checkbox:checked');
+            const members = [me.uid];
+            checkboxes.forEach(cb => members.push(cb.value));
+            
+            if(members.length < 2) { showToast("Add at least one member", 'error'); return; }
+            
+            try {
+                const groupRef = db.ref('groups').push();
+                const groupId = groupRef.key;
+                
+                const membersObj = {};
+                members.forEach(uid => { membersObj[uid] = true; });
+                
+                await groupRef.set({
+                    name: groupName,
+                    createdBy: me.uid,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    members: membersObj
+                });
+                
+                const updates = {};
+                members.forEach(uid => {
+                    updates[`userGroups/${uid}/${groupId}`] = true;
+                });
+                
+                await db.ref().update(updates);
+                
+                closeModal('groupModal');
+                showToast("Group created!", "success");
+                loadTab('groups');
+            } catch(e) {
+                console.error("Error creating group:", e);
+                showToast("Error creating group", "error");
+            }
         }
 
-        async function openChat(uid) {
+        async function openChat(type, id) {
             try {
-                const uSnap = await db.ref('users/' + uid).once('value');
-                friend = { uid, ...uSnap.val() };
-                chatId = [me.uid, friend.uid].sort().join('_');
-                unreadCounts[uid] = 0;
-                updateSidebarUserUI(uid);
-                document.getElementById('chatAvatar').innerText = (friend.name || 'U').charAt(0);
-                document.getElementById('chatName').innerText = friend.name;
+                if(type === 'private') {
+                    const uSnap = await db.ref('users/' + id).once('value');
+                    const user = uSnap.val();
+                    currentChat = { 
+                        type: 'private', 
+                        id: id, 
+                        data: user,
+                        chatId: [me.uid, id].sort().join('_')
+                    };
+                    
+                    unreadCounts[id] = 0;
+                    
+                    document.getElementById('chatAvatar').innerText = (user.name || 'U').charAt(0);
+                    document.getElementById('chatName').innerText = user.name;
+                    document.getElementById('chatAvatar').classList.remove('group-avatar');
+                    
+                    // Enable call buttons for private chats only
+                    document.getElementById('videoCallBtn').disabled = false;
+                    document.getElementById('audioCallBtn').disabled = false;
+                    
+                    await db.ref('chats/' + currentChat.chatId).set({ [me.uid]: true, [id]: true });
+                    
+                    loadPrivateMessages();
+                    listenTyping();
+                } else {
+                    const groupSnap = await db.ref('groups/' + id).once('value');
+                    const group = groupSnap.val();
+                    currentChat = { 
+                        type: 'group', 
+                        id: id, 
+                        data: group,
+                        chatId: id
+                    };
+                    
+                    groupUnreadCounts[id] = 0;
+                    
+                    document.getElementById('chatAvatar').innerText = 'G';
+                    document.getElementById('chatName').innerText = group.name;
+                    document.getElementById('chatAvatar').classList.add('group-avatar');
+                    
+                    // Disable call buttons for groups
+                    document.getElementById('videoCallBtn').disabled = true;
+                    document.getElementById('audioCallBtn').disabled = true;
+                    
+                    loadGroupMessages();
+                }
+                
                 document.getElementById('msgInput').disabled = false; 
                 document.getElementById('sendBtn').disabled = false;
-                document.getElementById('videoCallBtn').disabled = false; 
-                document.getElementById('audioCallBtn').disabled = false;
-                await db.ref('chats/' + chatId).set({ [me.uid]: true, [friend.uid]: true });
-                if(window.innerWidth <= 768) { document.getElementById('appContainer').classList.add('chat-open'); }
+                
+                if(window.innerWidth <= 768) { 
+                    document.getElementById('appContainer').classList.add('chat-open'); 
+                }
+                
                 document.getElementById('msgBox').innerHTML = '';
-                loadMessages(); listenTyping(); 
-                if(currentTab === 'friends') loadFriends(); 
-            } catch(e) { console.error("Error opening chat:", e); showToast('Error opening chat', 'error'); }
+                
+                if(currentTab === 'chats') loadChats();
+                
+            } catch(e) { 
+                console.error("Error opening chat:", e); 
+                showToast('Error opening chat', 'error'); 
+            }
         }
 
-        function goBack() { document.getElementById('appContainer').classList.remove('chat-open'); }
-
-        function loadMessages() {
-            db.ref('messages/' + chatId).off();
-            db.ref('messages/' + chatId).orderByChild('timestamp').on('child_added', async snap => {
+        function loadPrivateMessages() {
+            if(!currentChat || currentChat.type !== 'private') return;
+            
+            db.ref('messages/' + currentChat.chatId).off();
+            db.ref('messages/' + currentChat.chatId).orderByChild('timestamp').on('child_added', async snap => {
                 const msg = snap.val(); const msgId = snap.key;
                 if(msg && msg.sender !== me.uid && msg.status !== 'seen') {
-                    await db.ref('messages/' + chatId + '/' + msgId).update({status: 'seen'});
+                    await db.ref('messages/' + currentChat.chatId + '/' + msgId).update({status: 'seen'});
                 }
                 renderMessage(msgId, msg);
             });
-            db.ref('messages/' + chatId).on('child_changed', snap => {
+            db.ref('messages/' + currentChat.chatId).on('child_changed', snap => {
                 const msg = snap.val(); const msgId = snap.key; const el = document.getElementById('msg-' + msgId);
                 if(el && msg) {
                     if(msg.deleted) { 
@@ -927,6 +1136,16 @@
             });
         }
 
+        function loadGroupMessages() {
+            if(!currentChat || currentChat.type !== 'group') return;
+            
+            db.ref('groupMessages/' + currentChat.id).off();
+            db.ref('groupMessages/' + currentChat.id).orderByChild('timestamp').on('child_added', snap => {
+                const msg = snap.val(); const msgId = snap.key;
+                renderGroupMessage(msgId, msg);
+            });
+        }
+
         function renderMessage(id, msg) {
             if (!msg) return;
             const box = document.getElementById('msgBox');
@@ -935,6 +1154,7 @@
             div.className = `message ${sent ? 'sent' : 'received'}`;
             div.id = 'msg-' + id;
             let content = '';
+            
             if(msg.deleted) { 
                 content = `<div class="message-content" style="background:#eee; color:#888;">Message deleted</div>`; 
                 div.classList.add('deleted'); 
@@ -943,6 +1163,7 @@
             } else { 
                 content = `<div class="message-content">${msg.text || ''}</div>`; 
             }
+            
             const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
             let statusHtml = '';
             if(sent) { 
@@ -954,73 +1175,170 @@
             box.scrollTop = box.scrollHeight;
         }
 
+        function renderGroupMessage(id, msg) {
+            if (!msg) return;
+            const box = document.getElementById('msgBox');
+            const sent = msg.sender === me.uid;
+            const div = document.createElement('div');
+            div.className = `message ${sent ? 'sent' : 'received'}`;
+            div.id = 'msg-' + id;
+            let content = '';
+            
+            const senderName = msg.senderName || 'Unknown';
+            
+            if(msg.deleted) { 
+                content = `<div class="message-content" style="background:#eee; color:#888;">Message deleted</div>`; 
+                div.classList.add('deleted'); 
+            } else if(msg.image) { 
+                content = `<img src="${msg.image}" class="message-img" onclick="showImage('${msg.image}')"><div class="message-content">${msg.text || ''}</div>`; 
+            } else { 
+                content = `<div class="message-content">${msg.text || ''}</div>`; 
+            }
+            
+            const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+            
+            if(!sent) {
+                div.innerHTML = `<div class="sender-name">${senderName}</div>${content}<div class="message-time">${time}</div>`;
+            } else {
+                div.innerHTML = `${content}<div class="message-time">${time} ${sent ? `<span class="msg-actions"><button class="del-btn" onclick="deleteMsg('${id}')">🗑️</button></span>` : ''}</div>`;
+            }
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
         async function sendMessage() {
             const text = document.getElementById('msgInput').value.trim(); 
-            if(!text || !chatId) return;
+            if(!text || !currentChat || !currentChat.chatId) return;
             
             const inputEl = document.getElementById('msgInput');
             
             try {
                 clearTimeout(typingTimer); 
-                await db.ref('typing/' + chatId + '/' + me.uid).remove();
-                await db.ref('messages/' + chatId).push({ 
-                    sender: me.uid, senderName: me.name, text, 
-                    timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' 
-                });
+                
+                if(currentChat.type === 'private') {
+                    await db.ref('typing/' + currentChat.chatId + '/' + me.uid).remove();
+                    await db.ref('messages/' + currentChat.chatId).push({ 
+                        sender: me.uid, senderName: me.name, text, 
+                        timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' 
+                    });
+                } else {
+                    await db.ref('groupMessages/' + currentChat.chatId).push({ 
+                        sender: me.uid, senderName: me.name, text, 
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }
+                
                 playSound('sent');
                 inputEl.value = '';
-                inputEl.focus(); // Keep focus so keyboard stays open
+                inputEl.focus();
                 
             } catch(e) { showToast('Error sending message', 'error'); }
         }
 
         function handleTyping() { 
-            if(!chatId) return; 
-            db.ref('typing/' + chatId + '/' + me.uid).set(true); 
+            if(!currentChat || currentChat.type !== 'private') return; 
+            db.ref('typing/' + currentChat.chatId + '/' + me.uid).set(true); 
             clearTimeout(typingTimer); 
-            typingTimer = setTimeout(() => db.ref('typing/' + chatId + '/' + me.uid).remove(), 2000); 
+            typingTimer = setTimeout(() => db.ref('typing/' + currentChat.chatId + '/' + me.uid).remove(), 2000); 
         }
         
         function listenTyping() { 
-            if(!chatId) return; 
-            db.ref('typing/' + chatId).on('value', snap => { 
+            if(!currentChat || currentChat.type !== 'private') return; 
+            db.ref('typing/' + currentChat.chatId).on('value', snap => { 
                 const data = snap.val(); 
                 const div = document.getElementById('typingDiv'); 
-                if(data && data[friend.uid]) div.style.display = 'block'; 
+                if(data && data[currentChat.id]) div.style.display = 'block'; 
                 else div.style.display = 'none'; 
             }); 
         }
 
         async function handleImageUpload(e) {
-            const file = e.target.files[0]; if(!file || !chatId) return;
+            const file = e.target.files[0]; if(!file || !currentChat) return;
             if (file.size > 5 * 1024 * 1024) { showToast('Image too large (max 5MB)', 'error'); return; }
             try {
                 showToast('Uploading image...', 'info');
-                const path = `chat_images/${chatId}/${Date.now()}_${file.name}`;
+                const path = `chat_images/${currentChat.chatId}/${Date.now()}_${file.name}`;
                 const ref = storage.ref(path); 
                 await ref.put(file);
                 const url = await ref.getDownloadURL();
-                await db.ref('messages/' + chatId).push({ 
-                    sender: me.uid, image: url, text: '', 
-                    timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' 
-                });
+                
+                if(currentChat.type === 'private') {
+                    await db.ref('messages/' + currentChat.chatId).push({ 
+                        sender: me.uid, image: url, text: '', 
+                        timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' 
+                    });
+                } else {
+                    await db.ref('groupMessages/' + currentChat.chatId).push({ 
+                        sender: me.uid, senderName: me.name, image: url, text: '', 
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }
+                
                 playSound('sent'); showToast('Image sent!', 'success');
             } catch(err) { showToast('Upload failed: ' + err.message, 'error'); }
             e.target.value = '';
         }
 
         function showImage(src) { document.getElementById('previewImg').src = src; openModal('imagePreviewModal'); }
+        
         function deleteMsg(id) { deleteTarget = id; openModal('deleteModal'); }
+        
         async function confirmDelete() { 
-            if(!deleteTarget || !chatId) return; 
+            if(!deleteTarget || !currentChat) return; 
             try {
-                await db.ref('messages/' + chatId + '/' + deleteTarget).update({ deleted: true, text: '', image: '' }); 
+                if(currentChat.type === 'private') {
+                    await db.ref('messages/' + currentChat.chatId + '/' + deleteTarget).update({ deleted: true, text: '', image: '' });
+                } else {
+                    await db.ref('groupMessages/' + currentChat.chatId + '/' + deleteTarget).update({ deleted: true, text: '', image: '' });
+                }
                 closeModal('deleteModal'); deleteTarget = null; 
             } catch(e) { showToast('Error deleting message', 'error'); }
         }
 
-        /* --- VIDEO CALL LOGIC --- */
-        
+        function goBack() { document.getElementById('appContainer').classList.remove('chat-open'); }
+
+        async function openChatInfo() {
+            if(!currentChat || !currentChat.data) return;
+            
+            if(currentChat.type === 'private') {
+                // Show friend info
+                document.getElementById('friendDetailName').innerText = currentChat.data.name;
+                document.getElementById('friendDetailAvatar').innerText = currentChat.data.name.charAt(0);
+                document.getElementById('friendDetailBio').innerText = currentChat.data.bio || '-';
+                document.getElementById('friendDetailStatus').innerText = currentChat.data.status || '-';
+                
+                const lastSeen = currentChat.data.lastSeen ? new Date(currentChat.data.lastSeen).toLocaleString() : 'Unknown';
+                document.getElementById('friendDetailLastSeen').innerText = lastSeen;
+                
+                openModal('friendModal');
+            } else {
+                // Show group info
+                document.getElementById('groupInfoName').innerText = currentChat.data.name;
+                const memberCount = currentChat.data.members ? Object.keys(currentChat.data.members).length : 0;
+                document.getElementById('groupInfoMembers').innerText = `${memberCount} members`;
+                
+                openModal('groupInfoModal');
+            }
+        }
+
+        async function leaveGroup() {
+            if(!currentChat || currentChat.type !== 'group') return;
+            
+            try {
+                await db.ref('userGroups/' + me.uid + '/' + currentChat.id).remove();
+                await db.ref('groups/' + currentChat.id + '/members/' + me.uid).remove();
+                
+                closeModal('groupInfoModal');
+                goBack();
+                showToast("Left group", "success");
+                loadTab('groups');
+            } catch(e) {
+                console.error("Error leaving group:", e);
+                showToast("Error leaving group", "error");
+            }
+        }
+
+        /* --- VIDEO CALL LOGIC (unchanged) --- */
         function setCallUI(status, extraText = '') {
             const overlay = document.getElementById('callStatusOverlay');
             const title = document.getElementById('overlayTitle');
@@ -1029,7 +1347,7 @@
             if (status === 'calling') {
                 overlay.classList.remove('hidden');
                 title.innerText = "Calling...";
-                text.innerText = "Ringing " + (friend ? friend.name : '');
+                text.innerText = "Ringing " + (currentChat && currentChat.data ? currentChat.data.name : '');
             } else if (status === 'connecting') {
                 overlay.classList.remove('hidden');
                 title.innerText = "Connecting...";
@@ -1117,7 +1435,10 @@
         }
 
         async function startCall(type) {
-            if (!friend) { showToast("Select a friend first", 'error'); return; }
+            if (!currentChat || currentChat.type !== 'private') { 
+                showToast("Select a friend first", 'error'); 
+                return; 
+            }
             
             callType = type;
             callId = Date.now().toString();
@@ -1125,7 +1446,7 @@
             try {
                 myStream = await getMediaStream(type === 'video');
                 document.getElementById('localVid').srcObject = myStream;
-                document.getElementById('remoteLabel').innerText = friend.name; 
+                document.getElementById('remoteLabel').innerText = currentChat.data.name; 
                 document.getElementById('switchCamBtn').style.display = (type === 'video') ? 'flex' : 'none';
                 
                 openModal('callModal');
@@ -1142,7 +1463,7 @@
 
                 await db.ref('calls/' + callId).set({
                     caller: me.uid, 
-                    callee: friend.uid, 
+                    callee: currentChat.id, 
                     type: type,
                     offer: { type: offer.type, sdp: offer.sdp },
                     status: 'ringing', 
