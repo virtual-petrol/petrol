@@ -51,6 +51,115 @@
         .toast.success { background: #2ed573; }
         .toast.info { background: #667eea; }
 
+        /* Messenger-style Popup Notifications */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 350px;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .notification-popup {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: auto;
+            border-left: 4px solid #667eea;
+            animation: slideIn 0.3s forwards;
+        }
+
+        .notification-popup.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .notification-popup.hide {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+
+        @keyframes slideIn {
+            0% { transform: translateX(400px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .notification-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .notification-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .notification-text {
+            font-size: 13px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .notification-time {
+            font-size: 10px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #999;
+            cursor: pointer;
+            padding: 5px;
+            margin-left: 5px;
+        }
+
+        .notification-close:hover {
+            color: #333;
+        }
+
+        .notification-group-badge {
+            background: #ff9800;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            color: white;
+            margin-left: 5px;
+        }
+
         /* Auth Section */
         .auth-section { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; width: 100%; height: 100%; }
         .auth-section h1 { color: white; margin-bottom: 30px; }
@@ -190,6 +299,7 @@
             .app-container.chat-open .main-content { transform: translateX(0); }
             .back-btn { display: block; }
             .video-box.local-pip { top: 15px; right: 15px; width: 100px; height: 140px; }
+            .notification-container { max-width: 300px; right: 10px; left: 10px; }
         }
     </style>
 </head>
@@ -197,8 +307,12 @@
     <audio id="msgSound" src="https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3" preload="auto"></audio>
     <audio id="sentSound" src="https://cdn.freesound.org/previews/411/411411_5121236-lq.mp3" preload="auto"></audio>
     <audio id="ringSound" src="Test Ringtone.mp3" preload="auto" loop></audio>
+    <audio id="notificationSound" src="https://cdn.freesound.org/previews/417/417044_7351039-lq.mp3" preload="auto"></audio>
 
     <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Messenger-style Notification Container -->
+    <div class="notification-container" id="notificationContainer"></div>
 
     <div class="container">
         <div class="auth-section" id="authSection">
@@ -417,6 +531,7 @@
         
         const appStartTime = Date.now(); 
         const notifiedMessages = new Set();
+        let notificationTimeout = null;
 
         // --- WEBRTC VARIABLES ---
         let pc = null; 
@@ -486,12 +601,84 @@
             }, duration);
         }
 
+        // Messenger-style notification function
+        function showNotification(senderId, senderName, message, type = 'private', groupName = '') {
+            const container = document.getElementById('notificationContainer');
+            
+            // Don't show notification if we're in the same chat
+            if (currentChat && 
+                ((type === 'private' && currentChat.type === 'private' && currentChat.id === senderId) ||
+                 (type === 'group' && currentChat.type === 'group' && currentChat.id === senderId))) {
+                return;
+            }
+            
+            const notification = document.createElement('div');
+            notification.className = 'notification-popup';
+            
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const avatar = senderName.charAt(0).toUpperCase();
+            const displayName = type === 'group' ? `${senderName} (Group)` : senderName;
+            const messageText = message.length > 50 ? message.substring(0, 47) + '...' : message;
+            
+            notification.innerHTML = `
+                <div class="notification-avatar">${avatar}</div>
+                <div class="notification-content">
+                    <div class="notification-title">
+                        ${displayName}
+                        ${type === 'group' ? '<span class="notification-group-badge">Group</span>' : ''}
+                    </div>
+                    <div class="notification-text">${messageText}</div>
+                    <div class="notification-time">${time}</div>
+                </div>
+                <button class="notification-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            
+            notification.onclick = (e) => {
+                if (e.target.className !== 'notification-close') {
+                    // Open the chat
+                    if (type === 'private') {
+                        openChat('private', senderId);
+                    } else {
+                        openChat('group', senderId);
+                    }
+                    notification.remove();
+                }
+            };
+            
+            container.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.classList.add('hide');
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+
+        function playNotificationSound() {
+            try {
+                const audio = document.getElementById('notificationSound');
+                if (audio) {
+                    audio.currentTime = 0;
+                    audio.play().catch(e => console.log("Audio play failed:", e));
+                }
+            } catch(e) {
+                console.log("Sound error:", e);
+            }
+        }
+
         function playSound(type) {
             try {
                 let audio;
                 if(type === 'message') audio = document.getElementById('msgSound');
                 else if(type === 'sent') audio = document.getElementById('sentSound');
                 else if(type === 'ring') audio = document.getElementById('ringSound');
+                else if(type === 'notification') audio = document.getElementById('notificationSound');
                 if (audio) {
                     audio.currentTime = 0;
                     audio.play().catch(e => console.log("Audio fail:", e));
@@ -532,6 +719,7 @@
                     
                     showApp();
                     listenCalls();
+                    listenForMessages();
                 } catch (error) {
                     console.error("Auth error:", error);
                     showToast("Error loading user data", 'error');
@@ -544,6 +732,63 @@
                 me = null; currentChat = { type: null, id: null, data: null };
                 backToLogin();
             }
+        }
+
+        // Listen for all incoming messages
+        function listenForMessages() {
+            if (!me) return;
+            
+            // Listen for private messages
+            db.ref('friendships').once('value', (snap) => {
+                const data = snap.val() || {};
+                Object.keys(data).forEach(key => {
+                    if (data[key] && data[key][me.uid] && data[key][me.uid].status === 'accepted') {
+                        const otherId = Object.keys(data[key]).find(x => x !== me.uid);
+                        if (otherId) {
+                            const chatId = [me.uid, otherId].sort().join('_');
+                            db.ref('messages/' + chatId).orderByChild('timestamp').limitToLast(1).on('child_added', (msgSnap) => {
+                                const msg = msgSnap.val();
+                                const msgId = msgSnap.key;
+                                if (msg && msg.sender !== me.uid && !notifiedMessages.has(msgId)) {
+                                    notifiedMessages.add(msgId);
+                                    
+                                    // Get sender info
+                                    db.ref('users/' + msg.sender).once('value', (userSnap) => {
+                                        const sender = userSnap.val();
+                                        if (sender) {
+                                            showNotification(msg.sender, sender.name, msg.text || '📷 Image', 'private');
+                                            playNotificationSound();
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+
+            // Listen for group messages
+            db.ref('userGroups/' + me.uid).once('value', (snap) => {
+                const groups = snap.val() || {};
+                Object.keys(groups).forEach(groupId => {
+                    db.ref('groupMessages/' + groupId).orderByChild('timestamp').limitToLast(1).on('child_added', (msgSnap) => {
+                        const msg = msgSnap.val();
+                        const msgId = msgSnap.key;
+                        if (msg && msg.sender !== me.uid && !notifiedMessages.has(msgId)) {
+                            notifiedMessages.add(msgId);
+                            
+                            // Get group info
+                            db.ref('groups/' + groupId).once('value', (groupSnap) => {
+                                const group = groupSnap.val();
+                                if (group) {
+                                    showNotification(groupId, group.name, msg.text || '📷 Image', 'group');
+                                    playNotificationSound();
+                                }
+                            });
+                        }
+                    });
+                });
+            });
         }
 
         function switchAuthTab(t) {
@@ -1338,7 +1583,7 @@
             }
         }
 
-        /* --- VIDEO CALL LOGIC (unchanged) --- */
+        /* --- VIDEO CALL LOGIC --- */
         function setCallUI(status, extraText = '') {
             const overlay = document.getElementById('callStatusOverlay');
             const title = document.getElementById('overlayTitle');
