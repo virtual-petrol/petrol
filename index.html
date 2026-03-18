@@ -306,7 +306,7 @@
 <body>
     <audio id="msgSound" src="https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3" preload="auto"></audio>
     <audio id="sentSound" src="https://cdn.freesound.org/previews/411/411411_5121236-lq.mp3" preload="auto"></audio>
-    <audio id="ringSound" src="Test Ringtone.mp3" preload="auto" loop></audio>
+    <audio id="ringSound" src="https://cdn.freesound.org/previews/412/412069_6432799-lq.mp3" preload="auto" loop></audio>
     <audio id="notificationSound" src="https://cdn.freesound.org/previews/417/417044_7351039-lq.mp3" preload="auto"></audio>
 
     <div class="toast-container" id="toastContainer"></div>
@@ -521,7 +521,7 @@
 
         let auth, db, storage;
         let me = null;
-        let currentChat = { type: null, id: null, data: null };
+        let currentChat = { type: null, id: null, data: null, chatId: null };
         let currentTab = 'chats';
         let deleteTarget = null;
         let typingTimer = null;
@@ -533,15 +533,23 @@
         const notifiedMessages = new Set();
         let notificationTimeout = null;
 
+        // Message listeners map to prevent multiple listeners
+        let activeMessageListeners = new Map();
+        let activeGroupMessageListeners = new Map();
+
         // --- WEBRTC VARIABLES ---
         let pc = null; 
         let myStream = null; 
         let callId = null; 
         let callType = null;
+        let isCallActive = false;
         const servers = { 
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
             ] 
         };
         let currentFacingMode = 'user';
@@ -550,8 +558,6 @@
         let candidateListenerCaller = null;
         let candidateListenerCallee = null;
         let answerListener = null;
-        let msgListeners = {}; 
-        let groupMsgListeners = {};
         
         // Queue for ICE candidates
         let iceCandidatesQueue = [];
@@ -618,7 +624,7 @@
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const avatar = senderName.charAt(0).toUpperCase();
             const displayName = type === 'group' ? `${senderName} (Group)` : senderName;
-            const messageText = message.length > 50 ? message.substring(0, 47) + '...' : message;
+            const messageText = message ? (message.length > 50 ? message.substring(0, 47) + '...' : message) : '📷 Image';
             
             notification.innerHTML = `
                 <div class="notification-avatar">${avatar}</div>
@@ -630,7 +636,7 @@
                     <div class="notification-text">${messageText}</div>
                     <div class="notification-time">${time}</div>
                 </div>
-                <button class="notification-close" onclick="this.parentElement.remove()">&times;</button>
+                <button class="notification-close" onclick="event.stopPropagation(); this.parentElement.remove()">&times;</button>
             `;
             
             notification.onclick = (e) => {
@@ -734,7 +740,7 @@
             }
         }
 
-        // Listen for all incoming messages
+        // Listen for all incoming messages with proper filtering
         function listenForMessages() {
             if (!me) return;
             
@@ -746,22 +752,41 @@
                         const otherId = Object.keys(data[key]).find(x => x !== me.uid);
                         if (otherId) {
                             const chatId = [me.uid, otherId].sort().join('_');
-                            db.ref('messages/' + chatId).orderByChild('timestamp').limitToLast(1).on('child_added', (msgSnap) => {
+                            
+                            // Remove existing listener if any
+                            if (activeMessageListeners.has(chatId)) {
+                                db.ref('messages/' + chatId).off('child_added', activeMessageListeners.get(chatId));
+                            }
+                            
+                            const listener = db.ref('messages/' + chatId).orderByChild('timestamp').limitToLast(1).on('child_added', (msgSnap) => {
                                 const msg = msgSnap.val();
                                 const msgId = msgSnap.key;
+                                
+                                // Only process if it's a new message and not from self
                                 if (msg && msg.sender !== me.uid && !notifiedMessages.has(msgId)) {
                                     notifiedMessages.add(msgId);
                                     
-                                    // Get sender info
-                                    db.ref('users/' + msg.sender).once('value', (userSnap) => {
-                                        const sender = userSnap.val();
-                                        if (sender) {
-                                            showNotification(msg.sender, sender.name, msg.text || '📷 Image', 'private');
-                                            playNotificationSound();
-                                        }
-                                    });
+                                    // Check if this message is for the current chat
+                                    const isCurrentChat = currentChat && 
+                                                         currentChat.type === 'private' && 
+                                                         ((msg.sender === currentChat.id) || 
+                                                          (msg.sender === me.uid && currentChat.id === otherId));
+                                    
+                                    // Only show notification if not in current chat
+                                    if (!isCurrentChat) {
+                                        // Get sender info
+                                        db.ref('users/' + msg.sender).once('value', (userSnap) => {
+                                            const sender = userSnap.val();
+                                            if (sender) {
+                                                showNotification(msg.sender, sender.name, msg.text || '📷 Image', 'private');
+                                                playNotificationSound();
+                                            }
+                                        });
+                                    }
                                 }
                             });
+                            
+                            activeMessageListeners.set(chatId, listener);
                         }
                     }
                 });
@@ -771,22 +796,38 @@
             db.ref('userGroups/' + me.uid).once('value', (snap) => {
                 const groups = snap.val() || {};
                 Object.keys(groups).forEach(groupId => {
-                    db.ref('groupMessages/' + groupId).orderByChild('timestamp').limitToLast(1).on('child_added', (msgSnap) => {
+                    
+                    // Remove existing listener if any
+                    if (activeGroupMessageListeners.has(groupId)) {
+                        db.ref('groupMessages/' + groupId).off('child_added', activeGroupMessageListeners.get(groupId));
+                    }
+                    
+                    const listener = db.ref('groupMessages/' + groupId).orderByChild('timestamp').limitToLast(1).on('child_added', (msgSnap) => {
                         const msg = msgSnap.val();
                         const msgId = msgSnap.key;
+                        
                         if (msg && msg.sender !== me.uid && !notifiedMessages.has(msgId)) {
                             notifiedMessages.add(msgId);
                             
-                            // Get group info
-                            db.ref('groups/' + groupId).once('value', (groupSnap) => {
-                                const group = groupSnap.val();
-                                if (group) {
-                                    showNotification(groupId, group.name, msg.text || '📷 Image', 'group');
-                                    playNotificationSound();
-                                }
-                            });
+                            // Check if this message is for the current chat
+                            const isCurrentChat = currentChat && 
+                                                 currentChat.type === 'group' && 
+                                                 currentChat.id === groupId;
+                            
+                            if (!isCurrentChat) {
+                                // Get group info
+                                db.ref('groups/' + groupId).once('value', (groupSnap) => {
+                                    const group = groupSnap.val();
+                                    if (group) {
+                                        showNotification(groupId, group.name, msg.text || '📷 Image', 'group');
+                                        playNotificationSound();
+                                    }
+                                });
+                            }
                         }
                     });
+                    
+                    activeGroupMessageListeners.set(groupId, listener);
                 });
             });
         }
@@ -1291,6 +1332,9 @@
 
         async function openChat(type, id) {
             try {
+                // Clear message box first
+                document.getElementById('msgBox').innerHTML = '';
+                
                 if(type === 'private') {
                     const uSnap = await db.ref('users/' + id).once('value');
                     const user = uSnap.val();
@@ -1307,7 +1351,7 @@
                     document.getElementById('chatName').innerText = user.name;
                     document.getElementById('chatAvatar').classList.remove('group-avatar');
                     
-                    // Enable call buttons for private chats only
+                    // Enable call buttons for private chats
                     document.getElementById('videoCallBtn').disabled = false;
                     document.getElementById('audioCallBtn').disabled = false;
                     
@@ -1331,9 +1375,9 @@
                     document.getElementById('chatName').innerText = group.name;
                     document.getElementById('chatAvatar').classList.add('group-avatar');
                     
-                    // Disable call buttons for groups
-                    document.getElementById('videoCallBtn').disabled = true;
-                    document.getElementById('audioCallBtn').disabled = true;
+                    // Enable call buttons for groups too!
+                    document.getElementById('videoCallBtn').disabled = false;
+                    document.getElementById('audioCallBtn').disabled = false;
                     
                     loadGroupMessages();
                 }
@@ -1344,8 +1388,6 @@
                 if(window.innerWidth <= 768) { 
                     document.getElementById('appContainer').classList.add('chat-open'); 
                 }
-                
-                document.getElementById('msgBox').innerHTML = '';
                 
                 if(currentTab === 'chats') loadChats();
                 
@@ -1358,16 +1400,37 @@
         function loadPrivateMessages() {
             if(!currentChat || currentChat.type !== 'private') return;
             
+            // Remove previous listener
             db.ref('messages/' + currentChat.chatId).off();
-            db.ref('messages/' + currentChat.chatId).orderByChild('timestamp').on('child_added', async snap => {
-                const msg = snap.val(); const msgId = snap.key;
-                if(msg && msg.sender !== me.uid && msg.status !== 'seen') {
-                    await db.ref('messages/' + currentChat.chatId + '/' + msgId).update({status: 'seen'});
+            
+            // Load messages in order
+            db.ref('messages/' + currentChat.chatId).orderByChild('timestamp').once('value', (snap) => {
+                const messages = snap.val();
+                if (messages) {
+                    Object.keys(messages).sort((a, b) => messages[a].timestamp - messages[b].timestamp).forEach(key => {
+                        renderMessage(key, messages[key]);
+                    });
                 }
-                renderMessage(msgId, msg);
             });
+            
+            // Listen for new messages
+            db.ref('messages/' + currentChat.chatId).orderByChild('timestamp').limitToLast(1).on('child_added', async snap => {
+                const msg = snap.val(); 
+                const msgId = snap.key;
+                
+                // Check if message already exists in DOM
+                if (!document.getElementById('msg-' + msgId)) {
+                    if(msg && msg.sender !== me.uid && msg.status !== 'seen') {
+                        await db.ref('messages/' + currentChat.chatId + '/' + msgId).update({status: 'seen'});
+                    }
+                    renderMessage(msgId, msg);
+                }
+            });
+            
             db.ref('messages/' + currentChat.chatId).on('child_changed', snap => {
-                const msg = snap.val(); const msgId = snap.key; const el = document.getElementById('msg-' + msgId);
+                const msg = snap.val(); 
+                const msgId = snap.key; 
+                const el = document.getElementById('msg-' + msgId);
                 if(el && msg) {
                     if(msg.deleted) { 
                         const contentEl = el.querySelector('.message-content');
@@ -1384,16 +1447,38 @@
         function loadGroupMessages() {
             if(!currentChat || currentChat.type !== 'group') return;
             
+            // Remove previous listener
             db.ref('groupMessages/' + currentChat.id).off();
-            db.ref('groupMessages/' + currentChat.id).orderByChild('timestamp').on('child_added', snap => {
-                const msg = snap.val(); const msgId = snap.key;
-                renderGroupMessage(msgId, msg);
+            
+            // Load messages in order
+            db.ref('groupMessages/' + currentChat.id).orderByChild('timestamp').once('value', (snap) => {
+                const messages = snap.val();
+                if (messages) {
+                    Object.keys(messages).sort((a, b) => messages[a].timestamp - messages[b].timestamp).forEach(key => {
+                        renderGroupMessage(key, messages[key]);
+                    });
+                }
+            });
+            
+            // Listen for new messages
+            db.ref('groupMessages/' + currentChat.id).orderByChild('timestamp').limitToLast(1).on('child_added', snap => {
+                const msg = snap.val(); 
+                const msgId = snap.key;
+                
+                // Check if message already exists in DOM
+                if (!document.getElementById('msg-' + msgId)) {
+                    renderGroupMessage(msgId, msg);
+                }
             });
         }
 
         function renderMessage(id, msg) {
             if (!msg) return;
             const box = document.getElementById('msgBox');
+            
+            // Check if message already exists
+            if (document.getElementById('msg-' + id)) return;
+            
             const sent = msg.sender === me.uid;
             const div = document.createElement('div');
             div.className = `message ${sent ? 'sent' : 'received'}`;
@@ -1423,6 +1508,10 @@
         function renderGroupMessage(id, msg) {
             if (!msg) return;
             const box = document.getElementById('msgBox');
+            
+            // Check if message already exists
+            if (document.getElementById('msg-' + id)) return;
+            
             const sent = msg.sender === me.uid;
             const div = document.createElement('div');
             div.className = `message ${sent ? 'sent' : 'received'}`;
@@ -1462,14 +1551,32 @@
                 
                 if(currentChat.type === 'private') {
                     await db.ref('typing/' + currentChat.chatId + '/' + me.uid).remove();
-                    await db.ref('messages/' + currentChat.chatId).push({ 
+                    const msgRef = await db.ref('messages/' + currentChat.chatId).push({ 
                         sender: me.uid, senderName: me.name, text, 
                         timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' 
                     });
+                    
+                    // Add message to UI immediately
+                    renderMessage(msgRef.key, {
+                        sender: me.uid,
+                        senderName: me.name,
+                        text: text,
+                        timestamp: Date.now(),
+                        status: 'sent'
+                    });
+                    
                 } else {
-                    await db.ref('groupMessages/' + currentChat.chatId).push({ 
+                    const msgRef = await db.ref('groupMessages/' + currentChat.chatId).push({ 
                         sender: me.uid, senderName: me.name, text, 
                         timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                    
+                    // Add message to UI immediately
+                    renderGroupMessage(msgRef.key, {
+                        sender: me.uid,
+                        senderName: me.name,
+                        text: text,
+                        timestamp: Date.now()
                     });
                 }
                 
@@ -1477,7 +1584,10 @@
                 inputEl.value = '';
                 inputEl.focus();
                 
-            } catch(e) { showToast('Error sending message', 'error'); }
+            } catch(e) { 
+                console.error("Error sending message:", e);
+                showToast('Error sending message', 'error'); 
+            }
         }
 
         function handleTyping() { 
@@ -1508,14 +1618,30 @@
                 const url = await ref.getDownloadURL();
                 
                 if(currentChat.type === 'private') {
-                    await db.ref('messages/' + currentChat.chatId).push({ 
+                    const msgRef = await db.ref('messages/' + currentChat.chatId).push({ 
                         sender: me.uid, image: url, text: '', 
                         timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' 
                     });
+                    
+                    renderMessage(msgRef.key, {
+                        sender: me.uid,
+                        image: url,
+                        text: '',
+                        timestamp: Date.now(),
+                        status: 'sent'
+                    });
                 } else {
-                    await db.ref('groupMessages/' + currentChat.chatId).push({ 
+                    const msgRef = await db.ref('groupMessages/' + currentChat.chatId).push({ 
                         sender: me.uid, senderName: me.name, image: url, text: '', 
                         timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                    
+                    renderGroupMessage(msgRef.key, {
+                        sender: me.uid,
+                        senderName: me.name,
+                        image: url,
+                        text: '',
+                        timestamp: Date.now()
                     });
                 }
                 
@@ -1583,7 +1709,7 @@
             }
         }
 
-        /* --- VIDEO CALL LOGIC --- */
+        /* --- ENHANCED VIDEO CALL LOGIC with 2-way communication --- */
         function setCallUI(status, extraText = '') {
             const overlay = document.getElementById('callStatusOverlay');
             const title = document.getElementById('overlayTitle');
@@ -1599,70 +1725,72 @@
                 text.innerText = "Please wait";
             } else if (status === 'connected') {
                 overlay.classList.add('hidden');
+                isCallActive = true;
             } else if (status === 'ended') {
                 overlay.classList.remove('hidden');
                 title.innerText = "Call Ended";
                 text.innerText = extraText || "Disconnected";
+                isCallActive = false;
             }
         }
 
         function createPeerConnection() {
-            if(pc) return pc;
+            if(pc) {
+                pc.close();
+                pc = null;
+            }
+            
             pc = new RTCPeerConnection(servers);
             
             pc.onicecandidate = (event) => {
                 if(event.candidate) {
-                    handleCandidate(event.candidate);
+                    if (callId) {
+                        if (callType === 'private' || callType === 'group') {
+                            const path = `calls/${callId}/candidates/${me.uid}`;
+                            db.ref(path).push(event.candidate.toJSON());
+                        }
+                    }
                 }
-            };
-
-            pc.onconnectionstatechange = () => {
-                console.log("Connection State:", pc.connectionState);
             };
 
             pc.oniceconnectionstatechange = () => {
-                console.log("ICE State:", pc.iceConnectionState);
+                console.log("ICE Connection State:", pc.iceConnectionState);
                 if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
                     setCallUI('connected');
-                }
-            }
-
-            if(myStream) {
-                myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
-            }
-            
-            pc.ontrack = (event) => { 
-                const remoteVid = document.getElementById('remoteVid');
-                if(remoteVid.srcObject !== event.streams[0]) {
-                    remoteVid.srcObject = event.streams[0]; 
+                } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+                    if (isCallActive) {
+                        showToast("Call connection lost", "error");
+                        endCall(true);
+                    }
                 }
             };
+
+            pc.ontrack = (event) => { 
+                const remoteVid = document.getElementById('remoteVid');
+                if (remoteVid.srcObject !== event.streams[0]) {
+                    remoteVid.srcObject = event.streams[0];
+                }
+            };
+
+            if (myStream) {
+                myStream.getTracks().forEach(track => {
+                    pc.addTrack(track, myStream);
+                });
+            }
+            
             return pc;
         }
 
-        function handleCandidate(candidate) {
-            // Overwritten by startCall/answerCall
-        }
-
-        async function processIceCandidatesQueue() {
-            if (pc.remoteDescription) {
-                while (iceCandidatesQueue.length) {
-                    const candidate = iceCandidatesQueue.shift();
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-                    } catch (e) {
-                        console.error("Error adding queued candidate:", e);
-                    }
-                }
-            }
-        }
-        
         async function getMediaStream(videoOn) {
+            if (myStream) {
+                myStream.getTracks().forEach(t => t.stop());
+            }
+            
             const constraints = { 
                 video: videoOn ? { 
                     facingMode: currentFacingMode,
-                    width: { ideal: 1280, max: 1280 }, 
-                    height: { ideal: 720, max: 720 }
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 }
                 } : false, 
                 audio: {
                     echoCancellation: true,
@@ -1670,18 +1798,21 @@
                     autoGainControl: true
                 }
             };
+            
             try {
-                return await navigator.mediaDevices.getUserMedia(constraints);
+                myStream = await navigator.mediaDevices.getUserMedia(constraints);
+                document.getElementById('localVid').srcObject = myStream;
+                return myStream;
             } catch(e) {
                 console.error("Media Error:", e);
-                showToast("Camera/Mic permission denied or error.", "error");
+                showToast("Camera/Mic permission denied", "error");
                 throw e;
             }
         }
 
         async function startCall(type) {
-            if (!currentChat || currentChat.type !== 'private') { 
-                showToast("Select a friend first", 'error'); 
+            if (!currentChat || !currentChat.data) { 
+                showToast("Select a chat first", 'error'); 
                 return; 
             }
             
@@ -1690,72 +1821,92 @@
             
             try {
                 myStream = await getMediaStream(type === 'video');
-                document.getElementById('localVid').srcObject = myStream;
-                document.getElementById('remoteLabel').innerText = currentChat.data.name; 
+                document.getElementById('remoteLabel').innerText = currentChat.data.name;
                 document.getElementById('switchCamBtn').style.display = (type === 'video') ? 'flex' : 'none';
                 
                 openModal('callModal');
-                setCallUI('calling'); 
+                setCallUI('calling');
 
-                createPeerConnection();
+                const pc = createPeerConnection();
                 
-                handleCandidate = (candidate) => {
-                    db.ref(`calls/${callId}/callerCandidates`).push(candidate.toJSON());
-                };
-
-                const offer = await pc.createOffer();
+                const offer = await pc.createOffer({
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: type === 'video'
+                });
                 await pc.setLocalDescription(offer);
 
-                await db.ref('calls/' + callId).set({
-                    caller: me.uid, 
-                    callee: currentChat.id, 
+                // Create call in database
+                const callData = {
+                    caller: me.uid,
                     type: type,
                     offer: { type: offer.type, sdp: offer.sdp },
-                    status: 'ringing', 
+                    status: 'ringing',
                     timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
+                };
 
-                listenForCallStatus();
+                if (currentChat.type === 'private') {
+                    callData.callee = currentChat.id;
+                    callData.isGroup = false;
+                } else {
+                    callData.groupId = currentChat.id;
+                    callData.isGroup = true;
+                    callData.participants = currentChat.data.members || {};
+                }
 
-                answerListener = db.ref(`calls/${callId}/answer`).on('value', async (snapshot) => {
-                    const data = snapshot.val();
-                    if(data && !pc.currentRemoteDescription) {
+                await db.ref('calls/' + callId).set(callData);
+
+                // Listen for answer
+                db.ref('calls/' + callId + '/answer').on('value', async (snapshot) => {
+                    const answer = snapshot.val();
+                    if (answer && pc.signalingState !== 'stable') {
                         try {
-                            await pc.setRemoteDescription(new RTCSessionDescription(data));
-                            await processIceCandidatesQueue();
-                        } catch(e) {
-                            console.error("Error setting remote desc (answer):", e);
+                            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                        } catch (e) {
+                            console.error("Error setting remote description:", e);
                         }
                     }
                 });
-                
-                candidateListenerCallee = db.ref(`calls/${callId}/calleeCandidates`).on('child_added', async (snapshot) => {
+
+                // Listen for ICE candidates
+                db.ref('calls/' + callId + '/candidates').on('child_added', async (snapshot) => {
                     const candidate = snapshot.val();
-                    if(candidate) {
-                        if (pc.remoteDescription) {
-                            try {
-                                await pc.addIceCandidate(new RTCIceCandidate(candidate));
-                            } catch(e) {
-                                console.error("Error adding callee candidate:", e);
-                            }
-                        } else {
-                            iceCandidatesQueue.push(candidate);
+                    if (candidate && pc.remoteDescription) {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                        } catch (e) {
+                            console.error("Error adding ICE candidate:", e);
                         }
+                    }
+                });
+
+                // Listen for call status
+                db.ref('calls/' + callId).on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (!data) return;
+                    
+                    if (data.status === 'connected') {
+                        setCallUI('connected');
+                    } else if (data.status === 'ended' || data.status === 'rejected') {
+                        endCall(true);
                     }
                 });
 
             } catch(err) {
                 console.error("Call start error:", err);
-                showToast("Could not start call: " + err.message, 'error');
-                endCall(true); 
+                showToast("Could not start call", 'error');
+                endCall(true);
             }
         }
 
         function listenCalls() {
+            // Listen for incoming private calls
             db.ref('calls').orderByChild('callee').equalTo(me.uid).on('child_added', async snap => {
                 const call = snap.val();
-                if(call && call.status === 'ringing') {
-                    if(Date.now() - call.timestamp > 30000) return;
+                if (call && call.status === 'ringing' && !call.isGroup) {
+                    if (Date.now() - call.timestamp > 30000) {
+                        await db.ref('calls/' + snap.key).update({ status: 'missed' });
+                        return;
+                    }
                     
                     callId = snap.key;
                     callType = call.type;
@@ -1765,91 +1916,128 @@
                         const caller = uSnap.val();
                         document.getElementById('callerName').innerText = caller ? caller.name : 'User';
                         document.getElementById('callTypeText').innerText = `Incoming ${call.type} call...`;
-                        playSound('ring'); 
+                        playSound('ring');
                         openModal('incomingModal');
                     } catch(e) { console.error("Incoming call error:", e); }
                 }
             });
+
+            // Listen for incoming group calls
+            db.ref('userGroups/' + me.uid).once('value', (snap) => {
+                const groups = snap.val() || {};
+                Object.keys(groups).forEach(groupId => {
+                    db.ref('calls').orderByChild('groupId').equalTo(groupId).on('child_added', async snap => {
+                        const call = snap.val();
+                        if (call && call.status === 'ringing' && call.isGroup && call.caller !== me.uid) {
+                            if (Date.now() - call.timestamp > 30000) {
+                                await db.ref('calls/' + snap.key).update({ status: 'missed' });
+                                return;
+                            }
+                            
+                            callId = snap.key;
+                            callType = call.type;
+                            
+                            try {
+                                const uSnap = await db.ref('users/' + call.caller).once('value');
+                                const caller = uSnap.val();
+                                const groupSnap = await db.ref('groups/' + groupId).once('value');
+                                const group = groupSnap.val();
+                                
+                                document.getElementById('callerName').innerHTML = `${caller ? caller.name : 'User'} <span style="font-size:14px; background:#ff9800; padding:2px 8px; border-radius:12px; margin-left:5px;">Group: ${group.name}</span>`;
+                                document.getElementById('callTypeText').innerText = `Incoming group ${call.type} call...`;
+                                playSound('ring');
+                                openModal('incomingModal');
+                            } catch(e) { console.error("Incoming group call error:", e); }
+                        }
+                    });
+                });
+            });
         }
 
         async function answerCall() {
-            stopSound(); 
+            stopSound();
             closeModal('incomingModal');
             
             try {
                 myStream = await getMediaStream(callType === 'video');
-                document.getElementById('localVid').srcObject = myStream;
                 document.getElementById('switchCamBtn').style.display = (callType === 'video') ? 'flex' : 'none';
 
                 const callSnap = await db.ref('calls/' + callId).once('value');
-                const callerId = callSnap.val().caller;
+                const callData = callSnap.val();
                 
-                const uSnap = await db.ref('users/' + callerId).once('value');
-                document.getElementById('remoteLabel').innerText = uSnap.val().name;
-
-                openModal('callModal');
-                setCallUI('connecting'); 
-                
-                createPeerConnection();
-
-                handleCandidate = (candidate) => {
-                    db.ref(`calls/${callId}/calleeCandidates`).push(candidate.toJSON());
-                };
-
-                if(callSnap.val().offer) {
-                    try {
-                        await pc.setRemoteDescription(new RTCSessionDescription(callSnap.val().offer));
-                        await processIceCandidatesQueue();
-
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        await db.ref(`calls/${callId}/answer`).set({ type: answer.type, sdp: answer.sdp });
-                        await db.ref(`calls/${callId}`).update({status: 'connected'});
-                    } catch(e) {
-                        console.error("Error answering:", e);
-                        showToast("Error connecting call", "error");
-                        endCall(true);
-                    }
+                let callerName = 'User';
+                if (callData.isGroup) {
+                    const groupSnap = await db.ref('groups/' + callData.groupId).once('value');
+                    const group = groupSnap.val();
+                    document.getElementById('remoteLabel').innerText = group.name + ' (Group)';
+                    
+                    // Set current chat to the group
+                    await openChat('group', callData.groupId);
+                } else {
+                    const uSnap = await db.ref('users/' + callData.caller).once('value');
+                    const caller = uSnap.val();
+                    callerName = caller ? caller.name : 'User';
+                    document.getElementById('remoteLabel').innerText = callerName;
+                    
+                    // Set current chat to the caller
+                    await openChat('private', callData.caller);
                 }
 
-                candidateListenerCaller = db.ref(`calls/${callId}/callerCandidates`).on('child_added', async (snapshot) => {
+                openModal('callModal');
+                setCallUI('connecting');
+
+                const pc = createPeerConnection();
+
+                if (callData.offer) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+                    
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    
+                    await db.ref('calls/' + callId + '/answer').set({
+                        type: answer.type,
+                        sdp: answer.sdp
+                    });
+                    
+                    await db.ref('calls/' + callId).update({ status: 'connected' });
+                }
+
+                // Listen for ICE candidates
+                db.ref('calls/' + callId + '/candidates').on('child_added', async (snapshot) => {
                     const candidate = snapshot.val();
-                    if(candidate) {
-                        if (pc.remoteDescription) {
-                            try {
-                                await pc.addIceCandidate(new RTCIceCandidate(candidate));
-                            } catch(e) {
-                                console.error("Error adding caller candidate:", e);
-                            }
-                        } else {
-                            iceCandidatesQueue.push(candidate);
+                    if (candidate && pc.remoteDescription) {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                        } catch (e) {
+                            console.error("Error adding ICE candidate:", e);
                         }
                     }
                 });
 
-                listenForCallStatus();
+                // Listen for call status
+                db.ref('calls/' + callId).on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (!data) return;
+                    
+                    if (data.status === 'ended' || data.status === 'rejected') {
+                        endCall(true);
+                    }
+                });
 
             } catch(err) {
                 console.error("Answer call error:", err);
-                showToast("Could not answer: " + err.message, 'error');
+                showToast("Could not answer call", 'error');
                 endCall(true);
             }
         }
 
-        function listenForCallStatus() {
-            if(callStatusListener) { db.ref('calls/' + callId).off('value', callStatusListener); }
-            callStatusListener = db.ref('calls/' + callId).on('value', (snapshot) => {
-                const data = snapshot.val();
-                if(!data) return;
-                
-                if(data.status === 'connected') { 
-                    callStartTime = Date.now(); 
-                    setCallUI('connected'); 
-                }
-                if(data.status === 'ended' || data.status === 'rejected') {
-                    endCall(true); 
-                }
-            });
+        async function rejectCall() {
+            stopSound();
+            if (callId) {
+                await db.ref('calls/' + callId).update({ status: 'rejected' });
+            }
+            closeModal('incomingModal');
+            callId = null;
         }
 
         async function endCall(isRemoteEnd) {
@@ -1859,42 +2047,35 @@
                 durationStr = `${Math.floor(diff / 60)}m ${diff % 60}s`; 
             }
 
-            if(!isRemoteEnd && callId) { 
+            if (!isRemoteEnd && callId) { 
                 setCallUI('ended', durationStr); 
-                await db.ref('calls/' + callId).update({status: 'ended'}); 
+                await db.ref('calls/' + callId).update({ status: 'ended' }); 
                 await new Promise(r => setTimeout(r, 1500)); 
             }
 
-            if(answerListener) { db.ref(`calls/${callId}/answer`).off('value', answerListener); answerListener = null; }
-            if(candidateListenerCaller) { db.ref(`calls/${callId}/calleeCandidates`).off('child_added', candidateListenerCaller); candidateListenerCaller = null; }
-            if(candidateListenerCallee) { db.ref(`calls/${callId}/callerCandidates`).off('child_added', candidateListenerCallee); candidateListenerCallee = null; }
-            if(callStatusListener) { db.ref('calls/' + callId).off('value', callStatusListener); callStatusListener = null; }
+            // Clean up listeners
+            if (callId) {
+                db.ref('calls/' + callId + '/answer').off();
+                db.ref('calls/' + callId + '/candidates').off();
+                db.ref('calls/' + callId).off();
+            }
 
-            closeModal('callModal'); 
-            closeModal('incomingModal'); 
+            closeModal('callModal');
+            closeModal('incomingModal');
             stopSound();
             
-            if(pc) { 
+            if (pc) { 
                 pc.close(); 
                 pc = null; 
             }
-            if(myStream) { 
+            if (myStream) { 
                 myStream.getTracks().forEach(t => t.stop()); 
                 myStream = null; 
             }
             
-            iceCandidatesQueue = [];
-            callStartTime = null; 
+            callStartTime = null;
             callId = null;
-        }
-
-        async function rejectCall() { 
-            stopSound(); 
-            if(callId) {
-                await db.ref(`calls/${callId}`).update({status: 'rejected'}); 
-            }
-            closeModal('incomingModal'); 
-            callId = null; 
+            isCallActive = false;
         }
 
         function toggleMic() { 
@@ -1925,20 +2106,13 @@
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
             
             try {
-                const newStream = await getMediaStream(true);
-                const newVideoTrack = newStream.getVideoTracks()[0];
-                
-                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-                if(sender) await sender.replaceTrack(newVideoTrack);
-                
-                const oldVideoTrack = myStream.getVideoTracks()[0];
-                if(oldVideoTrack) oldVideoTrack.stop();
-                
-                myStream.removeTrack(myStream.getVideoTracks()[0]);
-                myStream.addTrack(newVideoTrack);
-                document.getElementById('localVid').srcObject = myStream;
-                
-                showToast("Camera Switched", "info");
+                const videoTrack = myStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    await videoTrack.applyConstraints({
+                        facingMode: currentFacingMode
+                    });
+                    showToast("Camera Switched", "info");
+                }
             } catch(e) {
                 console.error(e);
                 showToast("Could not switch camera", "error");
