@@ -2,287 +2,87 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Nexus 2026</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<title>Lama AI</title>
 <style>
-  :root {
-    --neon-green: #00ff9d;
-    --neon-blue: #00c3ff;
-    --bg-dark: #050505;
-    --glass: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.1);
-  }
+body {
+  background: #0f172a;
+  color: white;
+  font-family: Arial;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
 
-  body {
-    font-family: 'Inter', sans-serif;
-    background: var(--bg-dark);
-    color: #e0e0e0;
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    margin: 0;
-  }
+.container {
+  width: 400px;
+}
 
-  /* Animated Background Mesh */
-  .bg-mesh {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-      radial-gradient(circle at 15% 15%, rgba(0, 255, 157, 0.08) 0%, transparent 40%),
-      radial-gradient(circle at 85% 85%, rgba(0, 195, 255, 0.08) 0%, transparent 40%);
-    z-index: -1;
-  }
+textarea {
+  width: 100%;
+  height: 100px;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+}
 
-  .container {
-    width: 100%;
-    max-width: 600px;
-    padding: 20px;
-    position: relative;
-  }
+button {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  background: #22c55e;
+  color: black;
+  font-weight: bold;
+  border-radius: 10px;
+  cursor: pointer;
+}
 
-  /* Glassmorphism Card */
-  .card {
-    background: var(--glass);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 40px;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-    animation: fadeIn 1s ease-out;
-  }
-
-  h1 {
-    font-weight: 800;
-    font-size: 2rem;
-    letter-spacing: -1px;
-    margin-bottom: 30px;
-    background: linear-gradient(to right, #fff, #a0a0a0);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-align: center;
-  }
-
-  .input-group {
-    position: relative;
-    margin-bottom: 20px;
-  }
-
-  textarea {
-    width: 100%;
-    height: 120px;
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 16px;
-    color: white;
-    font-family: 'Inter', sans-serif;
-    font-size: 1rem;
-    resize: none;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-  }
-
-  textarea:focus {
-    outline: none;
-    border-color: var(--neon-blue);
-    box-shadow: 0 0 20px rgba(0, 195, 255, 0.2);
-  }
-
-  textarea::placeholder {
-    color: rgba(255, 255, 255, 0.4);
-  }
-
-  .btn-generate {
-    width: 100%;
-    padding: 16px;
-    border-radius: 12px;
-    border: none;
-    background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
-    color: #000;
-    font-weight: 700;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .btn-generate:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(0, 255, 157, 0.3);
-  }
-
-  .btn-generate:active {
-    transform: scale(0.98);
-  }
-
-  .output-area {
-    margin-top: 30px;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 16px;
-    padding: 20px;
-    min-height: 150px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: #d0d0d0;
-    white-space: pre-wrap;
-    position: relative;
-  }
-
-  .output-label {
-    position: absolute;
-    top: -10px;
-    left: 20px;
-    background: var(--bg-dark);
-    padding: 0 10px;
-    font-size: 0.8rem;
-    color: var(--neon-green);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  /* Loading Animation */
-  .loader {
-    display: none;
-    width: 20px;
-    height: 20px;
-    border: 3px solid rgba(0,0,0,0.1);
-    border-top-color: #000;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    margin-left: -10px;
-    margin-top: -10px;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+.output {
+  margin-top: 15px;
+  background: #1e293b;
+  padding: 10px;
+  border-radius: 10px;
+}
 </style>
 </head>
+
 <body>
 
-<div class="bg-mesh"></div>
-
 <div class="container">
-  <div class="card">
-    <h1>AI Nexus Interface</h1>
-    
-    <div class="input-group">
-      <textarea id="prompt" placeholder="Initiate command sequence..."></textarea>
-    </div>
+  <h2>Lama AI</h2>
 
-    <button class="btn-generate" onclick="generate()">
-      <span id="btn-text">Generate Response</span>
-      <div class="loader" id="loader"></div>
-    </button>
+  <textarea id="input" placeholder="Ask something..."></textarea>
+  <button onclick="generate()">Generate</button>
 
-    <div class="output-area">
-      <span class="output-label">System Output</span>
-      <div id="output">Awaiting input parameters...</div>
-    </div>
-  </div>
+  <div class="output" id="output">Response will appear here...</div>
 </div>
 
 <script>
-  // ============================================================
-  // CONFIGURATION
-  // ============================================================
-  // 1. Go to Hugging Face -> Settings -> Access Tokens
-  // 2. Create a new token (Fine-grained).
-  // 3. Check "Read" permissions for Repositories.
-  // 4. Check "Make calls to inference providers" for Inference.
-  // 5. Copy the key and paste it inside the quotes below:
-  
-  const API_KEY = "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";
-  
-  // ============================================================
+async function generate() {
+  const input = document.getElementById("input").value;
+  const output = document.getElementById("output");
 
-  const API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+  output.innerText = "Thinking...";
 
-  async function generate() {
-    const prompt = document.getElementById("prompt").value;
-    const outputDiv = document.getElementById("output");
-    const loader = document.getElementById("loader");
-    const btnText = document.getElementById("btn-text");
+  try {
+    const res = await fetch("http://localhost:3000/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        inputs: input
+      })
+    });
 
-    // Check if key is updated
-    if (API_KEY === "PASTE_YOUR_NEW_API_KEY_HERE" || API_KEY === "") {
-        outputDiv.innerText = "Error: You have not pasted your API Key in the code.\n\nPlease edit the code and insert your key in the API_KEY variable.";
-        return;
-    }
+    const data = await res.json();
 
-    if (!prompt) {
-      outputDiv.innerText = "Error: Input stream empty.";
-      return;
-    }
-
-    // UI Loading State
-    outputDiv.innerText = "Processing neural link...";
-    loader.style.display = "block";
-    btnText.style.visibility = "hidden";
-
-    try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: { return_full_text: false } // Only get the generated part
-        })
-      });
-
-      const data = await response.json();
-
-      // Handle HTTP Errors (like 401 Unauthorized or 503 Loading)
-      if (!response.ok) {
-        const errorMsg = data.error || "Unknown API Error";
-        // Specific check for auth errors
-        if (response.status === 401) {
-            outputDiv.innerText = "Error: Invalid API Key. Check if you copied it correctly.";
-        } else if (response.status === 403) {
-            outputDiv.innerText = "Error: Permission Denied. Make sure your token has 'Inference' permissions checked.";
-        } else {
-            outputDiv.innerText = `System Error: ${errorMsg}`;
-        }
-        console.error(data);
-        return;
-      }
-
-      // Handle Success
-      if (Array.isArray(data) && data[0].generated_text) {
-        outputDiv.innerText = data[0].generated_text.trim();
-      } else {
-        outputDiv.innerText = "Response format invalid.";
-      }
-
-    } catch (error) {
-      console.error(error);
-      outputDiv.innerText = "Network Request Failed.\n\n(Check Console for CORS errors or invalid API Key)";
-    } finally {
-      // Reset Button
-      loader.style.display = "none";
-      btnText.style.visibility = "visible";
-    }
+    output.innerText = data[0]?.generated_text || "No response";
+  } catch (err) {
+    output.innerText = "Error: " + err.message;
   }
+}
 </script>
 
 </body>
