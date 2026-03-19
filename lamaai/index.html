@@ -2,246 +2,104 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NexusAI Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<title>Lama Ai</title>
+
 <style>
-  :root {
-    --bg-color: #0f0f11;
-    --card-bg: #1a1a1f;
-    --primary: #6366f1;
-    --accent: #22d3ee;
-    --text-main: #f9fafb;
-    --text-muted: #9ca3af;
-    --border-color: #2d2d35;
-    --error: #ef4444;
-    --success: #10b981;
-  }
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  justify-content: center;
+  margin-top: 50px;
+}
 
-  body {
-    font-family: 'Inter', sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    min-height: 100vh;
-    margin: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow-x: hidden;
-  }
+.container {
+  width: 420px;
+  text-align: center;
+}
 
-  /* Animated Background */
-  .orb {
-    position: fixed;
-    border-radius: 50%;
-    filter: blur(80px);
-    z-index: -1;
-    animation: float 10s infinite ease-in-out;
-  }
-  .orb-1 { width: 300px; height: 300px; background: var(--primary); top: -50px; left: -50px; opacity: 0.4; }
-  .orb-2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; right: -100px; opacity: 0.3; animation-delay: -5s; }
+textarea {
+  width: 100%;
+  height: 120px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: none;
+}
 
-  @keyframes float { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(20px, 30px); } }
+button {
+  padding: 10px 20px;
+  background: #22c55e;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 8px;
+}
 
-  .container { width: 100%; max-width: 650px; padding: 20px; }
-  .header { text-align: center; margin-bottom: 2rem; }
-  .logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 0.5rem; }
-  .logo-icon {
-    width: 40px; height: 40px;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-  }
-  h1 { font-size: 1.8rem; font-weight: 700; background: linear-gradient(to right, #fff, #9ca3af); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
-  .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
-
-  .card {
-    background: rgba(26, 26, 31, 0.8);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  }
-
-  textarea {
-    width: 100%; height: 140px;
-    background: #0f0f11;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px;
-    color: var(--text-main);
-    font-family: 'Inter', sans-serif; font-size: 0.95rem;
-    resize: none; outline: none;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-  }
-  textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
-  
-  .actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
-  .btn {
-    border: none; padding: 12px 24px;
-    border-radius: 8px;
-    font-weight: 600; cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-  }
-  .btn-primary { background: linear-gradient(135deg, var(--primary), #4f46e5); color: white; flex-grow: 1; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25); }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4); }
-  .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-  .btn-secondary { background: #2d2d35; color: var(--text-muted); padding: 12px 16px; }
-  .btn-secondary:hover { background: #3d3d45; color: white; }
-
-  .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .output-container { margin-top: 24px; background: #0f0f11; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
-  .output-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted); }
-  .copy-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; }
-  .copy-btn:hover { color: var(--accent); }
-
-  #output { padding: 16px; font-size: 0.95rem; line-height: 1.6; min-height: 120px; white-space: pre-wrap; color: #e5e7eb; }
-  .status-loading { color: var(--accent); }
-  .status-error { color: var(--error); }
-  .toast { position: fixed; bottom: 20px; background: var(--success); color: white; padding: 10px 20px; border-radius: 8px; opacity: 0; transition: opacity 0.3s; }
-  .toast.show { opacity: 1; }
-
+#output {
+  margin-top: 20px;
+  background: #1e293b;
+  padding: 15px;
+  border-radius: 8px;
+  min-height: 100px;
+  text-align: left;
+  white-space: pre-wrap;
+}
 </style>
 </head>
+
 <body>
 
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
+<div class="container">
+  <h1>Lama Ai</h1>
 
-  <div class="container">
-    <div class="header">
-      <div class="logo">
-        <div class="logo-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-        </div>
-        <h1>NexusAI Generator</h1>
-      </div>
-      <div class="subtitle">Powered by Mistral-7B</div>
-    </div>
+  <textarea id="prompt" placeholder="Type something..."></textarea>
 
-    <div class="card">
-      <textarea id="prompt" placeholder="Ask a question... (e.g. Who is the PM of Nepal?)"></textarea>
-      <div class="actions">
-        <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
-        <button class="btn btn-primary" id="generateBtn" onclick="generate()">
-          <div class="spinner" id="spinner"></div>
-          <span id="btn-text">Generate Response</span>
-        </button>
-      </div>
+  <button onclick="generate()">Generate</button>
 
-      <div class="output-container">
-        <div class="output-header">
-          <span id="status-text">Output</span>
-          <button class="copy-btn" onclick="copyText()">Copy</button>
-        </div>
-        <div id="output">Waiting for input...</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast">Copied!</div>
+  <div id="output">Output will appear here...</div>
+</div>
 
 <script>
-  // -----------------------------------------------------------
-  // ⚠️ SECURITY WARNING: 
-  // You posted this key publicly. Please REVOKE it immediately
-  // and generate a new one at huggingface.co/settings/tokens
-  // -----------------------------------------------------------
-  const API_KEY = "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"; 
+async function generate() {
+  const prompt = document.getElementById("prompt").value;
+  const output = document.getElementById("output");
 
-  async function generate() {
-    const prompt = document.getElementById("prompt").value;
-    const output = document.getElementById("output");
-    const spinner = document.getElementById("spinner");
-    const btnText = document.getElementById("btn-text");
-    const generateBtn = document.getElementById("generateBtn");
-    const statusText = document.getElementById("status-text");
+  if (!prompt) {
+    output.innerText = "Please enter a prompt!";
+    return;
+  }
 
-    if (!prompt) {
-      output.innerText = "Please enter a prompt first.";
-      output.className = "status-error";
-      return;
-    }
+  output.innerText = "Generating...";
 
-    // Reset UI
-    output.className = "";
-    spinner.style.display = "block";
-    btnText.innerText = "Thinking...";
-    generateBtn.disabled = true;
-    output.innerText = "Connecting to AI model...";
-    statusText.innerText = "Loading...";
-
-    // Mistral instruction formatting
-    const formattedPrompt = `[INST] ${prompt} [/INST]`;
-
-    try {
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            inputs: formattedPrompt,
-            parameters: { return_full_text: false }
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.error && data.error.includes("loading")) {
-         const waitTime = Math.round(data.estimated_time || 20);
-         output.innerText = `Model is waking up (cold start).\nPlease wait ${waitTime}s and click Generate again.`;
-         output.className = "status-loading";
-         statusText.innerText = "Model Loading";
-      } 
-      else if (data.error) {
-        output.innerText = `API Error: ${data.error}`;
-        output.className = "status-error";
-        statusText.innerText = "Error";
-      } 
-      else {
-        output.innerText = data[0].generated_text.trim();
-        statusText.innerText = "Complete";
+  try {
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "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",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          inputs: prompt
+        })
       }
+    );
 
-    } catch (error) {
-      console.error(error);
-      output.innerText = "Connection Failed.\n\nCRITICAL: You cannot run this by double-clicking the HTML file.\n\nPlease use 'Live Server' in VS Code or put the file on a real web host.";
-      output.className = "status-error";
-      statusText.innerText = "Network Error";
-    } finally {
-      spinner.style.display = "none";
-      btnText.innerText = "Generate Response";
-      generateBtn.disabled = false;
+    const data = await response.json();
+
+    if (data.error) {
+      output.innerText = "Error: " + data.error;
+    } else {
+      output.innerText = data[0].generated_text;
     }
-  }
 
-  function clearAll() {
-    document.getElementById("prompt").value = "";
-    document.getElementById("output").innerText = "Waiting for input...";
-    document.getElementById("output").className = "";
-    document.getElementById("status-text").innerText = "Output";
+  } catch (error) {
+    output.innerText = "Request failed!";
   }
-
-  function copyText() {
-    const text = document.getElementById("output").innerText;
-    if (text && !text.includes("Waiting") && !text.includes("Error") && !text.includes("Connecting")) {
-      navigator.clipboard.writeText(text);
-      const toast = document.getElementById("toast");
-      toast.classList.add("show");
-      setTimeout(() => { toast.classList.remove("show"); }, 2000);
-    }
-  }
+}
 </script>
 
 </body>
