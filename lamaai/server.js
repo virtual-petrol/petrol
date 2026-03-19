@@ -14,7 +14,7 @@ app.post("/api/generate", async (req, res) => {
       {
         method: "POST",
         headers: {
-          "Authorization": "Bearer YOUR_HF_API_KEY",
+          Authorization: "Bearer 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",
           "Content-Type": "application/json",
         },
         body: JSON.stringify(req.body),
@@ -23,11 +23,13 @@ app.post("/api/generate", async (req, res) => {
 
     const data = await response.json();
     res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
+app.get("/", (req, res) => {
+  res.send("Lama AI Backend Running 🚀");
 });
+
+app.listen(10000, () => console.log("Server running"));
