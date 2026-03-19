@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LAMA AI</title>
+<title>AI Nexus 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -34,8 +34,8 @@
     width: 100%;
     height: 100%;
     background: 
-      radial-gradient(circle at 15% 15%, rgba(0, 255, 157, 0.05) 0%, transparent 40%),
-      radial-gradient(circle at 85% 85%, rgba(0, 195, 255, 0.05) 0%, transparent 40%);
+      radial-gradient(circle at 15% 15%, rgba(0, 255, 157, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 85% 85%, rgba(0, 195, 255, 0.08) 0%, transparent 40%);
     z-index: -1;
   }
 
@@ -159,13 +159,14 @@
     border-radius: 50%;
     animation: spin 1s linear infinite;
     position: absolute;
-    right: 20px;
+    left: 50%;
     top: 50%;
-    transform: translateY(-50%);
+    margin-left: -10px;
+    margin-top: -10px;
   }
 
   @keyframes spin {
-    to { transform: translateY(-50%) rotate(360deg); }
+    to { transform: rotate(360deg); }
   }
 
   @keyframes fadeIn {
@@ -180,7 +181,7 @@
 
 <div class="container">
   <div class="card">
-    <h1>LAMA AI</h1>
+    <h1>AI Nexus Interface</h1>
     
     <div class="input-group">
       <textarea id="prompt" placeholder="Initiate command sequence..."></textarea>
@@ -199,11 +200,19 @@
 </div>
 
 <script>
+  // ============================================================
   // CONFIGURATION
-  // WARNING: Never share your API key publicly. 
-  // If you deploy this online, use a server-side proxy to hide the key.
-  const API_KEY = "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"; 
+  // ============================================================
+  // 1. Go to Hugging Face -> Settings -> Access Tokens
+  // 2. Create a new token (Fine-grained).
+  // 3. Check "Read" permissions for Repositories.
+  // 4. Check "Make calls to inference providers" for Inference.
+  // 5. Copy the key and paste it inside the quotes below:
   
+  const API_KEY = "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";
+  
+  // ============================================================
+
   const API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
 
   async function generate() {
@@ -212,6 +221,12 @@
     const loader = document.getElementById("loader");
     const btnText = document.getElementById("btn-text");
 
+    // Check if key is updated
+    if (API_KEY === "PASTE_YOUR_NEW_API_KEY_HERE" || API_KEY === "") {
+        outputDiv.innerText = "Error: You have not pasted your API Key in the code.\n\nPlease edit the code and insert your key in the API_KEY variable.";
+        return;
+    }
+
     if (!prompt) {
       outputDiv.innerText = "Error: Input stream empty.";
       return;
@@ -219,14 +234,14 @@
 
     // UI Loading State
     outputDiv.innerText = "Processing neural link...";
-    loader.style.display = "inline-block";
+    loader.style.display = "block";
     btnText.style.visibility = "hidden";
 
     try {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${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}`,
+          "Authorization": `Bearer ${API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -240,7 +255,14 @@
       // Handle HTTP Errors (like 401 Unauthorized or 503 Loading)
       if (!response.ok) {
         const errorMsg = data.error || "Unknown API Error";
-        outputDiv.innerText = `System Error: ${errorMsg}`;
+        // Specific check for auth errors
+        if (response.status === 401) {
+            outputDiv.innerText = "Error: Invalid API Key. Check if you copied it correctly.";
+        } else if (response.status === 403) {
+            outputDiv.innerText = "Error: Permission Denied. Make sure your token has 'Inference' permissions checked.";
+        } else {
+            outputDiv.innerText = `System Error: ${errorMsg}`;
+        }
         console.error(data);
         return;
       }
