@@ -111,7 +111,7 @@ function addMessage(role, text) {
 
   const label = document.createElement("div");
   label.className = "message-label";
-  label.textContent = role === "user" ? "You" : role === "assistant" ? "Nova" : "System";
+  label.textContent = role === "user" ? "You" : role === "assistant" ? "LAMA" : "System";
 
   const bubble = document.createElement("div");
   bubble.className = "message-bubble";
@@ -287,5 +287,5 @@ shortcutChips.forEach((chip) => {
 // Initial welcome message
 addMessage(
   "assistant",
-  "Hello, I am Nova. Hold the microphone button and ask a question, or say 'open YouTube' or 'send WhatsApp message'."
+  "Hello, I am LAMA AI. Hold the microphone button and ask a question, or say 'open YouTube' or 'send WhatsApp message'."
 );
