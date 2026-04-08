@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lama AI 2026 Edition</title>
+    <title>Lama AI v3.1</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #38bdf8; --bg: #050816; --card: #0b1020; --text: #e5e7eb; }
@@ -11,29 +11,33 @@
         .container { width: 90%; max-width: 450px; text-align: center; }
         .orb { width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 20px; background: radial-gradient(circle at 30% 30%, #fff, var(--accent) 40%, #000 100%); box-shadow: 0 0 30px rgba(56, 189, 248, 0.3); transition: 0.3s; }
         .listening { transform: scale(1.1); box-shadow: 0 0 50px var(--accent); animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .thinking { animation: spin 2s linear infinite; filter: hue-rotate(90deg); }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1.1); } 50% { opacity: 0.7; transform: scale(1.2); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .chat-box { background: var(--card); border: 1px solid #1e293b; border-radius: 15px; padding: 15px; height: 200px; overflow-y: auto; margin-bottom: 20px; text-align: left; }
-        .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+        .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.4; }
         .ai { background: #1e293b; border: 1px solid #334155; }
         .user { background: rgba(56, 189, 248, 0.1); border: 1px solid var(--accent); margin-left: auto; width: fit-content; }
-        button { background: var(--accent); border: none; padding: 12px 30px; border-radius: 25px; font-weight: bold; cursor: pointer; }
-        button:disabled { background: #334155; cursor: not-allowed; }
+        button { background: var(--accent); border: none; padding: 12px 30px; border-radius: 25px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: scale(1.02); }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Lama AI</h1>
-    <p id="status" style="font-size: 12px; color: #9ca3af;">Ready</p>
+    <p id="status" style="font-size: 12px; color: #9ca3af;">System Offline</p>
     <div class="orb" id="orb"></div>
-    <div class="chat-box" id="chat"></div>
-    <button id="micBtn">Initialize Assistant</button>
+    <div class="chat-box" id="chat">
+        <div class="msg ai">I am ready. Click the button below and say "Hello Lama" to begin.</div>
+    </div>
+    <button id="micBtn">Initialize Mic</button>
 </div>
 
 <script>
-    // 2026 CONFIGURATION
+    // --- UPDATED API CONFIG ---
     const API_KEY = "AIzaSyCX8xz0uVOexNDgZ72MnUDMhP2LVvTcpFg"; 
-    const MODEL_NAME = "gemini-3.1-flash-lite"; // Updated to 2026 stable model
+    const MODEL_NAME = "gemini-3.1-flash-lite-preview"; // Correct 2026 Model ID
 
     let isRecognizing = false;
     let isWaitingForCommand = false;
@@ -57,7 +61,8 @@
     }
 
     async function callGemini(prompt) {
-        status.innerText = "Lama is thinking...";
+        orb.className = "orb thinking";
+        status.innerText = "Processing...";
         history.push({ role: "user", parts: [{ text: prompt }] });
 
         try {
@@ -70,25 +75,23 @@
 
             const data = await response.json();
             
-            // Fixed the "undefined" error with a check
-            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+            if (data.candidates && data.candidates[0]?.content) {
                 const reply = data.candidates[0].content.parts[0].text;
                 history.push({ role: "model", parts: [{ text: reply }] });
                 return reply;
             } else {
-                console.error("Unexpected API response structure:", data);
-                return "I received an empty response. Please check your API usage limits.";
+                console.error("Structure Error:", data);
+                return "API response error. Check your Google AI Studio quota.";
             }
         } catch (e) {
-            console.error("API Fetch Error:", e);
-            return "I can't connect to my brain right now. Ensure your API key is active.";
+            return "Connection failed. Please check your internet.";
         }
     }
 
     function speak(text) {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
-        u.onstart = () => { status.innerText = "Lama is speaking..."; orb.classList.remove('listening'); };
+        u.onstart = () => { status.innerText = "Speaking..."; orb.className = "orb"; };
         u.onend = () => { status.innerText = "Listening for 'Hello Lama'..."; };
         window.speechSynthesis.speak(u);
     }
@@ -99,8 +102,8 @@
 
         if (transcript.includes("hello lama") || transcript.includes("hey lama")) {
             isWaitingForCommand = true;
-            orb.classList.add('listening');
-            speak("I'm here. What's on your mind?");
+            orb.className = "orb listening";
+            speak("I am listening. What do you need?");
         } 
         else if (isWaitingForCommand) {
             addMessage('user', transcript);
@@ -117,8 +120,8 @@
     micBtn.onclick = () => {
         if (!isRecognizing) {
             recognition.start();
-            micBtn.disabled = true;
             micBtn.innerText = "System Online";
+            micBtn.style.background = "#22c55e";
         }
     };
 </script>
