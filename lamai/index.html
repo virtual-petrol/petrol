@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- SECTION: Meta -->
+    <meta charset="UTF-8" />
+    <title>Nova — AI Voice Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="app gradient-mesh grain">
+    <!-- Decorative shapes -->
+    <div class="floating-shape" aria-hidden="true" style="top:-80px;left:-60px"></div>
+    <div class="floating-shape" aria-hidden="true" style="bottom:-120px;right:-40px"></div>
+
+    <main class="shell" aria-label="AI voice assistant interface">
+      <!-- SECTION: Header -->
+      <header class="header">
+        <div class="header-title-group">
+          <h1 class="app-title">Nova</h1>
+          <p class="app-subtitle">Your browser-based AI voice companion.</p>
+          <div class="accent-line"></div>
+        </div>
+        <div class="header-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-text" id="connection-status">Ready</span>
+        </div>
+      </header>
+
+      <!-- SECTION: Assistant Panel -->
+      <section class="assistant" aria-label="Conversation panel">
+        <div class="assistant-visual gradient-border shadow-dramatic">
+          <div class="orb" aria-hidden="true">
+            <div class="orb-ring orb-ring-outer"></div>
+            <div class="orb-ring orb-ring-middle"></div>
+            <div class="orb-core" id="orb-core"></div>
+          </div>
+          <p class="hint" id="hint-text">
+            Tap and say things like
+            <span class="hint-pill">"What is the capital of Japan?"</span>
+            <span class="hint-pill">"Open YouTube"</span>
+            <span class="hint-pill">"Message John on WhatsApp"</span>
+          </p>
+        </div>
+
+        <div class="assistant-main">
+          <!-- Conversation log -->
+          <div class="conversation shadow-soft" id="conversation" aria-live="polite">
+            <!-- Messages injected by script.js -->
+          </div>
+
+          <!-- Controls -->
+          <div class="controls">
+            <button
+              class="btn btn-primary animated-border"
+              id="mic-button"
+              type="button"
+            >
+              <span class="btn-icon" aria-hidden="true">🎤</span>
+              <span class="btn-label" id="mic-label">Hold to talk</span>
+            </button>
+
+            <button class="btn btn-ghost" id="stop-speech" type="button">
+              <span class="btn-icon" aria-hidden="true">⏹</span>
+              <span class="btn-label">Stop voice</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION: Quick Commands -->
+      <section class="shortcuts" aria-label="Example commands">
+        <h2 class="section-heading">Try saying</h2>
+        <div class="shortcut-grid">
+          <button class="chip" data-command="what is the tallest mountain in the world">
+            "What is the tallest mountain in the world?"
+          </button>
+          <button class="chip" data-command="open youtube">
+            "Open YouTube"
+          </button>
+          <button class="chip" data-command="open gmail">
+            "Open Gmail"
+          </button>
+          <button class="chip" data-command="open facebook">
+            "Open Facebook"
+          </button>
+          <button class="chip" data-command="send whatsapp message to mom saying i will be late">
+            "Send WhatsApp message to Mom saying I will be late"
+          </button>
+        </div>
+      </section>
+
+      <!-- SECTION: Info -->
+      <section class="info" aria-label="How it works">
+        <h2 class="section-heading">What Nova can do</h2>
+        <div class="info-grid">
+          <article class="info-card shadow-soft">
+            <h3>General knowledge</h3>
+            <p>
+              Ask questions like "Who is Albert Einstein?" or
+              "Explain photosynthesis". Nova searches online (using your
+              browser) and reads a concise answer aloud.
+            </p>
+          </article>
+          <article class="info-card shadow-soft">
+            <h3>Open apps & sites</h3>
+            <p>
+              Say "Open YouTube", "Open Gmail", or "Open Facebook" and Nova
+              will launch them in a new tab.
+            </p>
+          </article>
+          <article class="info-card shadow-soft">
+            <h3>WhatsApp messages</h3>
+            <p>
+              Say something like "Send WhatsApp message to Alex saying I am on
+              my way". Nova will prepare a WhatsApp link with the message
+              filled in so you can confirm and send.
+            </p>
+          </article>
+          <article class="info-card shadow-soft">
+            <h3>Voice + text output</h3>
+            <p>
+              Every response is spoken with text shown in the conversation
+              panel, so you can read or listen.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <p>
+          Built in your browser using the Web Speech API and simple
+          automations. Microphone access is required for voice input.
+        </p>
+      </footer>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
