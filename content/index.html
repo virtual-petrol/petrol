@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Content Generator 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    width: 90%;
+    max-width: 600px;
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.3);
+}
+
+h1 {
+    text-align: center;
+}
+
+textarea {
+    width: 100%;
+    height: 120px;
+    border-radius: 10px;
+    border: none;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 16px;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 10px;
+    background: #38bdf8;
+    color: black;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.output {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 10px;
+    min-height: 80px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+    <h1>🤖 AI Generator</h1>
+
+    <textarea id="prompt" placeholder="Enter your idea..."></textarea>
+
+    <button onclick="generate()">Generate</button>
+
+    <div class="output" id="result">Your AI result will appear here...</div>
+</div>
+
+<script>
+async function generate() {
+    const prompt = document.getElementById("prompt").value;
+    const resultDiv = document.getElementById("result");
+
+    if (!prompt) {
+        resultDiv.innerText = "Please enter something!";
+        return;
+    }
+
+    resultDiv.innerText = "Generating...";
+
+    try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer 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"
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "user", content: prompt }
+                ]
+            })
+        });
+
+        const data = await response.json();
+
+        resultDiv.innerText = data.choices[0].message.content;
+
+    } catch (error) {
+        resultDiv.innerText = "Error: " + error.message;
+    }
+}
+</script>
+
+</body>
+</html>
