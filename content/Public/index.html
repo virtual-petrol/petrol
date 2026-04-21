@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Generator 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+.container {
+    width: 90%;
+    max-width: 500px;
+}
+textarea, button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+}
+.output {
+    margin-top: 10px;
+    background: #1e293b;
+    padding: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>🤖 AI Content Generator</h2>
+    <textarea id="prompt" placeholder="Enter prompt..."></textarea>
+    <button onclick="generate()">Generate</button>
+    <div class="output" id="result"></div>
+</div>
+
+<script>
+async function generate() {
+    const prompt = document.getElementById("prompt").value;
+    const result = document.getElementById("result");
+
+    result.innerText = "Generating...";
+
+    const res = await fetch("/generate", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ prompt })
+    });
+
+    const data = await res.json();
+    result.innerText = data.result;
+}
+</script>
+
+</body>
+</html>
