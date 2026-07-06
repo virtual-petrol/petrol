@@ -54,7 +54,7 @@
         @media (min-width: 992px) {
             #dashboard-screen { grid-template-columns: 400px 1fr; height: calc(100vh - 30px); overflow: hidden; }
             .editor-section { height: 100%; overflow-y: auto; }
-            .preview-section { height: 100%; align-items: center; justify-content: center; }
+            .preview-section { height: 100%; align-items: flex-start; justify-content: center; }
         }
 
         /* Mobile/Tablet: Stacked */
@@ -100,7 +100,7 @@
         .btn-action:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
 
         /* --- PREVIEW SECTION --- */
-        .preview-section { background: #525659; padding: 20px; border-radius: var(--radius); overflow: hidden; display: flex; justify-content: center; align-items: flex-start; position: relative; }
+        .preview-section { background: #525659; padding: 20px; border-radius: var(--radius); overflow-y: auto; overflow-x: hidden; display: flex; justify-content: center; align-items: flex-start; position: relative; }
         .invoice-scroll-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; display: flex; justify-content: center; }
         @media (max-width: 600px) { .invoice-scroll-wrapper { justify-content: flex-start; } }
 
@@ -127,9 +127,8 @@
         .grand-total { border-bottom: none; font-weight: bold; font-size: 1.4rem; color: var(--primary-color); margin-top: 10px; border-top: 2px solid var(--primary-color); padding-top: 15px; }
         .inv-footer { margin-top: 40px; display: flex; align-items: flex-start; justify-content: space-between; border-top: 1px dashed var(--border-color); padding-top: 20px; gap: 20px; }
         .qr-area { text-align: center; flex-shrink: 0; }
-        .qr-area canvas { border: 1px solid #ddd; padding: 5px; border-radius: 4px; }
+        .qr-area #qr-canvas { border: 1px solid #ddd; padding: 5px; border-radius: 4px; display: inline-block; background: white; }
         .qr-text { font-size: 0.8rem; color: var(--text-light); margin-top: 5px; }
-        .payment-status { color: var(--accent-color); font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.9rem; margin-top: 5px; }
 
         @media print {
             body { background: white; display: block; }
@@ -154,7 +153,7 @@
             <form id="login-form">
                 <div class="form-group">
                     <label for="username">Merchant Name / ID</label>
-                    <input type="text" id="username" class="form-control" placeholder="Enter your Shop Name" value="ABC Group">
+                    <input type="text" id="username" class="form-control" placeholder="Enter your Shop Name" value="Ram Electronics">
                 </div>
                 <div class="form-group">
                     <label for="password">PIN</label>
@@ -204,7 +203,7 @@
             <!-- Merchant PAN Field -->
             <div class="form-group" style="margin-top: 10px; border-top: 1px dashed #ddd; padding-top: 10px;">
                 <label>Merchant PAN</label>
-                <input type="text" id="merchant-pan" class="form-control" value="XXXXXXXX" oninput="updatePreview()">
+                <input type="text" id="merchant-pan" class="form-control" value="XXXXXXXXX" oninput="updatePreview()">
             </div>
 
             <h4 class="section-title" style="margin-top: 10px; font-size: 1rem;">Items</h4>
@@ -248,7 +247,7 @@
                         <div class="inv-from">
                             <span class="detail-label">Bill From:</span>
                             <div class="detail-value" style="font-weight:bold;" id="prev-merchant-name">Nepal Pay Merchant</div>
-                            <div class="detail-value" id="prev-merchant-pan">PAN: XXXXXXXX</div>
+                            <div class="detail-value" id="prev-merchant-pan">PAN: XXXXXXXXX</div>
                             <div class="detail-value" id="user-merchant-id">ID: 9851359109</div>
                             <div class="detail-value">Kathmandu, Nepal</div>
                         </div>
@@ -283,9 +282,8 @@
                             <p id="prev-note" style="font-size: 0.85rem; color: #666; max-width: 300px;">Payment due upon receipt.</p>
                         </div>
                         <div class="qr-area">
-                            <canvas id="qr-canvas" width="100" height="100"></canvas>
+                            <div id="qr-canvas" style="width:100px;height:100px;"></div>
                             <div class="qr-text">Scan to Pay</div>
-                            <div class="payment-status"><span style="font-size:1.2rem;">✓</span> Paid</div>
                         </div>
                     </div>
                 </div>
@@ -316,15 +314,19 @@
         console.log("Firebase Initialized");
     </script>
 
+    <!-- QR CODE LIBRARY (for a real, scannable QR) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <!-- MAIN APPLICATION LOGIC -->
     <script>
-        const state = { items: [], invoiceCount: 1001, merchantId: '9841000000' };
+        const state = { items: [], invoiceCount: 1001, merchantId: '9851359109' };
+        const QR_LINK = 'https://mysticaura.anillama.com.np';
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('invoice-date').valueAsDate = new Date();
             addItem();
             updatePreview();
-            drawQRCode('NPRAY_INIT');
+            drawQRCode();
         });
 
         // --- LOGIN ---
@@ -436,26 +438,21 @@
             return 'NPR ' + num.toLocaleString('en-NP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
-        // --- QR CODE (Visual) ---
-        function drawQRCode(seedStr) {
-            const canvas = document.getElementById('qr-canvas');
-            const ctx = canvas.getContext('2d');
-            const size = 100; const cells = 25; const cellSize = size / cells;
-            ctx.fillStyle = 'white'; ctx.fillRect(0, 0, size, size);
-            let hash = 0;
-            for (let i = 0; i < seedStr.length; i++) { hash = ((hash << 5) - hash) + seedStr.charCodeAt(i); hash |= 0; }
-            const pseudoRandom = () => { const x = Math.sin(hash++) * 10000; return x - Math.floor(x); };
-            ctx.fillStyle = 'black';
-            const drawFinder = (r, c) => { ctx.fillRect(c*cellSize, r*cellSize, 7*cellSize, 7*cellSize); ctx.fillStyle='white'; ctx.fillRect((c+1)*cellSize, (r+1)*cellSize, 5*cellSize, 5*cellSize); ctx.fillStyle='black'; ctx.fillRect((c+2)*cellSize, (r+2)*cellSize, 3*cellSize, 3*cellSize); };
-            drawFinder(0,0); drawFinder(0, cells-7); drawFinder(cells-7, 0);
-            for(let r=0; r<cells; r++){
-                for(let c=0; c<cells; c++){
-                    if((r<8&&c<8)||(r<8&&c>cells-9)||(r>cells-9&&c<8)) continue;
-                    if(pseudoRandom()>0.5) ctx.fillRect(c*cellSize, r*cellSize, cellSize, cellSize);
-                }
+        // --- QR CODE (real, scannable) ---
+        function drawQRCode() {
+            const holder = document.getElementById('qr-canvas');
+            holder.innerHTML = '';
+            if (window.QRCode) {
+                new QRCode(holder, {
+                    text: QR_LINK,
+                    width: 100,
+                    height: 100,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff'
+                });
             }
         }
-        function updateQR(amount) { drawQRCode(`NPRAY|${state.merchantId}|${amount}`); }
+        function updateQR() { /* QR always points to the fixed promotional link */ }
 
         function printInvoice() {
             if(!document.getElementById('client-name').value) { showToast('Enter Client Name', 'error'); return; }
