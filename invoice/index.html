@@ -135,7 +135,11 @@
             .invoice-paper { box-shadow: none; margin: 0; padding: 0; width: 100%; max-width: 100%; min-height: auto; page-break-after: always; }
             .inv-footer { page-break-inside: avoid; }
         }
-    </style>
+    
+.app-logo img,.header-logo img,.inv-logo img{width:100%;height:100%;object-fit:contain;}
+.header-logo{width:30px;height:30px;}
+
+</style>
 </head>
 <body>
 
@@ -144,7 +148,7 @@
     <!-- LOGIN SCREEN -->
     <section id="login-screen">
         <div class="login-card fade-in">
-            <div class="app-logo">NP</div>
+            <div class="app-logo"><img src="images/logo.png" alt="Logo"></div>
             <h2 class="login-title">Nepalo Typing Center</h2>
             <form id="login-form">
                 <div class="form-group">
@@ -164,7 +168,7 @@
     <section id="dashboard-screen" class="hidden">
         <header>
             <div class="header-brand">
-                <div style="width:30px; height:30px; background:var(--primary-color); border-radius:50%; color:white; display:flex; align-items:center; justify-content:center; font-size:14px;">NP</div>
+                <div class="header-logo"><img src="images/logo.png" alt="Logo"></div>
                 <span>Invoicing</span>
             </div>
             <div class="user-profile">
@@ -231,7 +235,7 @@
             <div class="invoice-scroll-wrapper">
                 <div class="invoice-paper" id="invoice-paper">
                     <div class="inv-header">
-                        <div class="inv-logo">NP</div>
+                        <div class="inv-logo"><img src="images/logo.png" alt="Logo"></div>
                         <div class="inv-title">
                             <h1>INVOICE</h1>
                             <div class="inv-meta">#INV-<span id="inv-number">001</span></div>
@@ -244,7 +248,7 @@
                             <span class="detail-label">Bill From:</span>
                             <div class="detail-value" style="font-weight:bold;" id="prev-merchant-name">Nepal Pay Merchant</div>
                             <div class="detail-value" id="prev-merchant-pan">PAN: 123456789</div>
-                            <div class="detail-value" id="user-merchant-id">ID: 9841000000</div>
+                            <div class="detail-value" id="user-merchant-id">ID: 9851359109</div>
                             <div class="detail-value">Kathmandu, Nepal</div>
                         </div>
                         <div class="inv-to">
