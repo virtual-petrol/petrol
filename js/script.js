@@ -166,6 +166,8 @@ async function handleAuthState(user) {
                 });
                 me = { uid: user.uid, name: user.displayName || "User", email: user.email };
             } else {
+                // FIX: Update the verified status to true for existing users who just logged in
+                await db.ref('users/' + user.uid).update({ verified: true });
                 me = { uid: user.uid, name: dbUser.name || user.displayName || "User", email: user.email };
             }
 
@@ -601,6 +603,21 @@ function renderChatList(chats) {
 
 async function loadFriends() {
     try {
+        // FIX: Fetch incoming friend requests directed to you
+        const reqSnap = await db.ref('friendRequests').orderByChild('to').equalTo(me.uid).once('value');
+        const requests = reqSnap.val() || {};
+        const pendingRequests = [];
+
+        for (let key in requests) {
+            const req = requests[key];
+            const uSnap = await db.ref('users/' + req.from).once('value');
+            const u = uSnap.val();
+            if (u) {
+                pendingRequests.push({ reqId: key, uid: req.from, ...u });
+            }
+        }
+
+        // Fetch existing friends
         const snap = await db.ref('friendships').once('value');
         const data = snap.val() || {};
         const ids = [];
@@ -623,21 +640,45 @@ async function loadFriends() {
             }
         }
 
-        renderFriendsList(friends);
+        renderFriendsList(friends, pendingRequests);
     } catch (e) {
         console.error("Error loading friends:", e);
     }
 }
 
-function renderFriendsList(friends) {
+function renderFriendsList(friends, pendingRequests = []) {
     const cont = document.getElementById('sidebarContent');
+    let html = '';
+
+    // FIX: Render UI for pending requests so they can be accepted
+    if (pendingRequests.length > 0) {
+        html += `<div class="section-title" style="padding: 10px; font-size: 12px; color: #888; font-weight: bold;">PENDING REQUESTS</div>`;
+        pendingRequests.forEach(u => {
+            html += `<div class="user-item">
+                <div class="avatar">${(u.name || 'U').charAt(0)}</div>
+                <div>
+                    <h4>${u.name}</h4>
+                    <p style="font-size:11px;color:#888">Sent a friend request</p>
+                </div>
+                <button class="action-btn-sm add-sm" style="background:#28a745;" onclick="acceptFriend('${u.reqId}', '${u.uid}')">Accept</button>
+            </div>`;
+        });
+        html += `<hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0;">`;
+    }
 
     if (friends.length === 0) {
-        cont.innerHTML = `<div class="empty-state">No friends yet</div>`;
+        html += `<div class="empty-state">No friends yet</div>`;
+        if (pendingRequests.length === 0) {
+            cont.innerHTML = html;
+        } else {
+            cont.innerHTML = html.replace('<div class="empty-state">No friends yet</div>', '') + `<div class="empty-state">No friends yet</div>`; 
+        }
         return;
     }
 
-    let html = '';
+    if (pendingRequests.length > 0) {
+        html += `<div class="section-title" style="padding: 10px; font-size: 12px; color: #888; font-weight: bold;">FRIENDS</div>`;
+    }
 
     friends.forEach(u => {
         const status = u.online ? '' : 'offline';
@@ -653,6 +694,25 @@ function renderFriendsList(friends) {
     });
 
     cont.innerHTML = html;
+}
+
+// FIX: New function to handle accepting a friend request
+async function acceptFriend(reqId, friendUid) {
+    try {
+        await db.ref('friendRequests/' + reqId).remove();
+
+        const friendshipId = [me.uid, friendUid].sort().join('_');
+        await db.ref('friendships/' + friendshipId).set({
+            [me.uid]: { status: 'accepted' },
+            [friendUid]: { status: 'accepted' }
+        });
+
+        showToast('Friend request accepted!', 'success');
+        loadTab('friends');
+    } catch (e) {
+        console.error("Error accepting friend:", e);
+        showToast('Error accepting request', 'error');
+    }
 }
 
 async function loadGroups() {
@@ -718,11 +778,16 @@ async function loadSearch() {
             }
         });
 
-        const rSnap = await db.ref('friendRequests').orderByChild('from').equalTo(me.uid).once('value');
-        const rs = rSnap.val() || {};
+        // FIX: Ensure search hides users if we sent them a request OR they sent us a request
+        const rSnapFrom = await db.ref('friendRequests').orderByChild('from').equalTo(me.uid).once('value');
+        const rSnapTo = await db.ref('friendRequests').orderByChild('to').equalTo(me.uid).once('value');
+        
+        const rsFrom = rSnapFrom.val() || {};
+        const rsTo = rSnapTo.val() || {};
         const pendingIds = [];
 
-        Object.keys(rs).forEach(k => pendingIds.push(rs[k].to));
+        Object.keys(rsFrom).forEach(k => pendingIds.push(rsFrom[k].to));
+        Object.keys(rsTo).forEach(k => pendingIds.push(rsTo[k].from));
 
         const list = [];
 
